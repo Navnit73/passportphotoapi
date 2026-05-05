@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0",
+  "country": {
+    "name": "United States",
+    "code": "US"
+  },
+  "document_type": "passport",
+
+  "photo_spec": {
+    "width_in": 2,
+    "height_in": 2,
+    "aspect_ratio": 1.0,
+    "print_dpi": 300
+  },
+
+  "digital_requirements": {
+    "required_resolution_px": {
+      "width": 600,
+      "height": 600
+    },
+    "min_resolution_px": {
+      "width": 600,
+      "height": 600
+    },
+    "max_resolution_px": {
+      "width": 1200,
+      "height": 1200
+    },
+    "max_file_size_kb": 240,
+    "format": ["jpg", "jpeg"],
+    "background_color": "white"
+  },
+
+  "face_constraints": {
+    "head_height_pct": {
+      "min": 50,
+      "max": 69
+    },
+    "eye_position": {
+      "from_bottom_pct": {
+        "min": 56,
+        "max": 69
+      }
+    },
+    "top_margin_pct": {
+      "min": 6,
+      "recommended": 9
+    },
+    "chin_to_bottom_pct": {
+      "min": 5
+    }
+  },
+
+  "pose_rules": {
+    "head_tilt_allowed": false,
+    "expression": "neutral",
+    "eyes_open": true,
+    "mouth_closed": true,
+    "both_ears_visible": false
+  },
+
+  "background_rules": {
+    "color": "plain white",
+    "shadows_allowed": false,
+    "texture_allowed": false
+  },
+
+  "print_layout": {
+    "paper_size": "A4",
+    "photos_per_sheet": 6,
+    "spacing_mm": 5,
+    "cut_guides": true
+  },
+
+  "auto_crop_config": {
+    "head_top_multiplier": 1.25,
+    "eye_line_target_pct": 0.62,
+    "safe_padding_pct": 5
+  }
+}

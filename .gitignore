@@ -1,0 +1,9 @@
+# Passport Photo Processing API
+
+uploads/
+results/
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
