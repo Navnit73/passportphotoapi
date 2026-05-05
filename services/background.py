@@ -38,6 +38,7 @@ BG_COLORS = {
     "light-gray": (243, 244, 246),
     "light-blue": (239, 246, 255),
     "blue":       (0, 71, 171),
+    "red":        (200, 30, 30),  # Standard passport red
 }
 
 
@@ -56,7 +57,25 @@ def _parse_bg_color(color_str: str) -> tuple[int, int, int]:
     """Convert background color string to RGB tuple."""
     color_str = color_str.lower().strip()
 
-    # Check named colors
+    # 1. Smart mapping for descriptive strings
+    # Use spaces or exact matches to avoid accidental matches like "colored" -> "red"
+    words = color_str.split()
+    
+    if "red" in words:
+        return BG_COLORS["red"]
+    
+    if "gray" in color_str or "grey" in color_str:
+        return BG_COLORS["light-gray"]
+    
+    if "blue" in color_str:
+        if "light" in color_str:
+            return BG_COLORS["light-blue"]
+        return BG_COLORS["blue"]
+    
+    if "white" in color_str or "off-white" in color_str or "cream" in color_str or "light colored" in color_str:
+        return BG_COLORS["white"]
+
+    # 2. Check direct mapping
     if color_str in BG_COLORS:
         return BG_COLORS[color_str]
 

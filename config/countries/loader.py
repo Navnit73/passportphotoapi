@@ -65,7 +65,7 @@ def get_config(
     document_type: str = "passport",
 ) -> Optional[CountryConfig]:
     """
-    Retrieve a loaded country config.
+    Retrieve a loaded country config (case-insensitive).
 
     Args:
         country_code: ISO country code (e.g. "US")
@@ -74,7 +74,7 @@ def get_config(
     Returns:
         CountryConfig or None if not found.
     """
-    key = f"{country_code}_{document_type}"
+    key = f"{country_code.upper()}_{document_type.lower()}"
     config = _configs.get(key)
 
     if config is None:

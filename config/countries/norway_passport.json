@@ -1,51 +1,51 @@
 {
   "schema_version": "1.0",
   "country": {
-    "name": "United States",
-    "code": "US"
+    "name": "Norway",
+    "code": "NO"
   },
   "document_type": "passport",
   "photo_spec": {
-    "width_in": 2,
-    "height_in": 2,
-    "aspect_ratio": 1.0,
-    "print_dpi": 300,
+    "width_mm": 35,
+    "height_mm": 45,
+    "aspect_ratio": 0.778,
+    "print_dpi": 400,
     "space_from_top": 3
   },
   "digital_requirements": {
     "required_resolution_px": {
-      "width": 600,
-      "height": 600
+      "width": 413,
+      "height": 531
     },
     "min_resolution_px": {
-      "width": 600,
-      "height": 600
+      "width": 350,
+      "height": 450
     },
     "max_resolution_px": {
-      "width": 1200,
-      "height": 1200
+      "width": 1000,
+      "height": 1300
     },
-    "max_file_size_kb": 240,
+    "max_file_size_kb": 500,
     "format": [
       "jpg",
       "jpeg"
     ],
-    "background_color": "white"
+    "background_color": "light-gray"
   },
   "face_constraints": {
     "head_height_pct": {
-      "min": 50,
-      "max": 69
+      "min": 70,
+      "max": 80
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 56,
-        "max": 69
+        "min": 50,
+        "max": 65
       }
     },
     "top_margin_pct": {
-      "min": 6,
-      "recommended": 9
+      "min": 5,
+      "recommended": 8
     },
     "chin_to_bottom_pct": {
       "min": 5
@@ -56,23 +56,25 @@
     "expression": "neutral",
     "eyes_open": true,
     "mouth_closed": true,
-    "both_ears_visible": false
+    "both_ears_visible": true
   },
   "background_rules": {
-    "color": "plain white",
+    "color": "plain light gray",
     "shadows_allowed": false,
     "texture_allowed": false
   },
   "print_layout": {
     "paper_size": "A4",
-    "photos_per_sheet": 6,
+    "photos_per_sheet": 8,
     "spacing_mm": 5,
     "cut_guides": true
   },
   "auto_crop_config": {
     "head_top_multiplier": 1.25,
-    "eye_line_target_pct": 0.62,
+    "eye_line_target_pct": 0.6,
     "safe_padding_pct": 5
   },
-  "data_source": "official"
+  "data_source": "official",
+  "source_url": "https://www.schengenvisainfo.com/photo-requirements/",
+  "source_authority": "Schengen Visa Information \u2013 ICAO Standard"
 }
