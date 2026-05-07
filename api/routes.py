@@ -84,9 +84,12 @@ async def validate_photo(
     try:
         report = analyze_image(file_bytes, config, image.content_type)
         return report
-    except Exception as e:
+    except ValueError as e:
         logger.error(f"Validation failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Validation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
 
 # ─── POST /process ───
@@ -154,16 +157,16 @@ async def process_image(
     try:
         # ─── Step 1: Face detection ───
         logger.info(f"Processing: country={country_code}, doc={document_type}")
-        image = processed_image # using the decoded image
+        cv_image = processed_image  # decoded numpy array
 
         try:
-            face = detect_face(image)
+            face = detect_face(cv_image)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
         # ─── Step 2: Hair crown detection (BEFORE background change) ───
         try:
-            crown_y = detect_hair_crown(image)
+            crown_y = detect_hair_crown(cv_image)
         except ValueError as e:
             logger.warning(f"Hair detection failed, using face estimate: {e}")
             crown_y = face.top_of_head_y
@@ -173,14 +176,14 @@ async def process_image(
 
         # ─── Step 3: Background validation ───
         bg_color = config.background_rules.color
-        bg_validation = validate_background(image, target_color=bg_color)
+        bg_validation = validate_background(cv_image, target_color=bg_color)
         background_corrected = False
 
         # ─── Step 4: Background correction if needed ───
         if not bg_validation.is_valid:
             logger.info(f"Background invalid: {bg_validation.message}")
 
-            corrected_image, success = correct_background(image, target_color=bg_color)
+            corrected_image, success = correct_background(cv_image, target_color=bg_color)
 
             if not success:
                 raise HTTPException(
@@ -189,13 +192,13 @@ async def process_image(
                            "Please use a photo with a plain white background.",
                 )
 
-            image = corrected_image
+            cv_image = corrected_image
             background_corrected = True
-            bg_validation = validate_background(image, target_color=bg_color)
+            bg_validation = validate_background(cv_image, target_color=bg_color)
 
         # ─── Step 5: Crop ───
         try:
-            crop_result = compute_crop(image, face, crown_y, config)
+            crop_result = compute_crop(cv_image, face, crown_y, config)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 

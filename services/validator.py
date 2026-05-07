@@ -50,8 +50,9 @@ def analyze_image(file_bytes: bytes, config, content_type: str) -> ValidationRes
     )
 
     # --- 3. Image Resolution ---
-    min_w = config.digital_requirements.min_resolution_px.width
-    min_h = config.digital_requirements.min_resolution_px.height
+    min_res = config.digital_requirements.min_resolution_px or config.digital_requirements.required_resolution_px
+    min_w = min_res.width
+    min_h = min_res.height
     res_status = "success" if (w >= min_w and h >= min_h) else "error"
     resolution = ValidationItem(
         label="Image Resolution",
@@ -133,7 +134,7 @@ def analyze_image(file_bytes: bytes, config, content_type: str) -> ValidationRes
         # 7. Head Size
         try:
             crown_y = detect_hair_crown(image)
-        except:
+        except Exception:
             crown_y = face.top_of_head_y
         crown_y = min(crown_y, face.top_of_head_y)
         

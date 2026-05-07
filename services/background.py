@@ -8,7 +8,7 @@ Validation:
   4. Check RGB deviation, brightness, variance
 
 Correction (if invalid):
-  Replace background using rembg with u2netp model.
+  Replace background using rembg with isnet-general-use model.
 """
 
 import logging
@@ -26,9 +26,9 @@ def _get_rembg_session():
     """Get or create the rembg session (singleton)."""
     global _rembg_session
     if _rembg_session is None:
-        logger.info("Initializing rembg session with u2net_human_seg model...")
+        logger.info("Initializing rembg session with isnet-general-use model...")
         from rembg import new_session
-        _rembg_session = new_session("u2net_human_seg")
+        _rembg_session = new_session("isnet-general-use")
     return _rembg_session
 
 # ─── Background color map ───
@@ -144,7 +144,6 @@ def validate_background(
     image: np.ndarray,
     target_color: str = "plain white",
     rgb_tolerance: int = 10,
-    brightness_min: int = 240,
     max_variance: float = 15.0,
 ) -> BackgroundValidationResult:
     """
@@ -154,7 +153,6 @@ def validate_background(
         image: BGR numpy array
         target_color: target background color string
         rgb_tolerance: max allowed RGB deviation per channel
-        brightness_min: minimum average brightness of edge pixels
         max_variance: max allowed variance across samples (texture check)
 
     Returns:
@@ -195,9 +193,16 @@ def validate_background(
             f"RGB deviation {max_deviation:.1f} exceeds tolerance {rgb_tolerance}"
         )
 
-    if brightness < brightness_min:
+    # Derive expected brightness from the target color instead of using a
+    # hardcoded threshold.  This ensures non-white backgrounds (red, blue,
+    # light-gray) are not incorrectly rejected.
+    target_brightness = sum(target_rgb) / 3.0
+    effective_brightness_min = max(target_brightness - 30, 0)
+
+    if brightness < effective_brightness_min:
         issues.append(
-            f"Brightness {brightness:.0f} below minimum {brightness_min}"
+            f"Brightness {brightness:.0f} below minimum {effective_brightness_min:.0f} "
+            f"(expected ~{target_brightness:.0f} for '{target_color}')"
         )
 
     if variance > max_variance:
@@ -230,7 +235,7 @@ def correct_background_rembg(
     target_color: str = "plain white",
 ) -> np.ndarray:
     """
-    Replace background using rembg with u2netp model.
+    Replace background using rembg with isnet-general-use model.
 
     Args:
         image: BGR numpy array
@@ -275,7 +280,7 @@ def correct_background_rembg(
         result_rgb = np.array(bg.convert("RGB"))
         result_bgr = cv2.cvtColor(result_rgb, cv2.COLOR_RGB2BGR)
 
-        logger.info(f"Background replaced with {target_color} via rembg (u2netp)")
+        logger.info(f"Background replaced with {target_color} via rembg (isnet-general-use)")
         return result_bgr
 
     except ImportError:
@@ -289,8 +294,6 @@ def correct_background_rembg(
 def correct_background(
     image: np.ndarray,
     target_color: str = "plain white",
-    rgb_tolerance: int = 10,
-    brightness_min: int = 240,
 ) -> tuple[np.ndarray, bool]:
     """
     Background correction pipeline using rembg.
@@ -298,8 +301,6 @@ def correct_background(
     Args:
         image: BGR numpy array
         target_color: target background color
-        rgb_tolerance: validation tolerance (unused but kept for compatibility)
-        brightness_min: minimum brightness (unused but kept for compatibility)
 
     Returns:
         (corrected_image, success) tuple

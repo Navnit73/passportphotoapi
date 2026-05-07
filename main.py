@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from config.countries.loader import load_all_configs
 from config.settings import settings
+from services.background import _get_rembg_session
 
 # ─── Logging setup ───
 logging.basicConfig(
@@ -43,6 +44,10 @@ async def lifespan(app: FastAPI):
     settings.result_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Upload dir: {settings.upload_dir.resolve()}")
     logger.info(f"Result dir: {settings.result_dir.resolve()}")
+
+    # Pre-load background removal model
+    logger.info("Pre-loading background removal model...")
+    _get_rembg_session()
 
     logger.info("API ready — accepting requests")
     logger.info("=" * 60)

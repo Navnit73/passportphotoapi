@@ -185,9 +185,18 @@ def create_print_sheet(
     photo = Image.open(io.BytesIO(photo_bytes))
     from PIL import ImageDraw
 
-    # Calculate grid dynamically
-    cols = (sheet_w - 40) // (target_w + spacing_px)
-    rows = (sheet_h - 40) // (target_h + spacing_px)
+    # Calculate grid dynamically, but respect photos_per_sheet limit
+    max_cols = (sheet_w - 40) // (target_w + spacing_px)
+    max_rows = (sheet_h - 40) // (target_h + spacing_px)
+
+    # Cap total photos to photos_per_sheet
+    cols = max(1, max_cols)
+    rows = max(1, max_rows)
+    while rows * cols > photos_per_sheet and rows > 1:
+        rows -= 1
+    while rows * cols > photos_per_sheet and cols > 1:
+        cols -= 1
+
     margin_x = (sheet_w - (cols * target_w + (cols - 1) * spacing_px)) // 2
     margin_y = (sheet_h - (rows * target_h + (rows - 1) * spacing_px)) // 2
 
