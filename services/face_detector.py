@@ -116,8 +116,8 @@ def _center_of_points(points: list[Point]) -> Point:
 
 def _compute_tilt_angle(left_eye: Point, right_eye: Point) -> float:
     """Compute head tilt angle in degrees using eye centers."""
-    dy = right_eye.y - left_eye.y
-    dx = right_eye.x - left_eye.x
+    dy = left_eye.y - right_eye.y
+    dx = left_eye.x - right_eye.x
     angle_rad = np.arctan2(dy, dx)
     return float(np.degrees(angle_rad))
 

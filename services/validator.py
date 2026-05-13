@@ -50,7 +50,7 @@ def analyze_image(file_bytes: bytes, config, content_type: str) -> ValidationRes
     )
 
     # --- 3. Image Resolution ---
-    min_res = config.digital_requirements.min_resolution_px or config.digital_requirements.required_resolution_px
+    min_res = config.digital_requirements.required_resolution_px or config.digital_requirements.required_resolution_px
     min_w = min_res.width
     min_h = min_res.height
     res_status = "success" if (w >= min_w and h >= min_h) else "error"

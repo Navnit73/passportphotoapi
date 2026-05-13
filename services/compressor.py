@@ -7,6 +7,7 @@ embeds DPI metadata.
 """
 
 import io
+import math
 import logging
 
 import cv2
@@ -153,7 +154,7 @@ def create_print_sheet(
     target_h: int,
     paper_size: str = "4x6_in",
     photos_per_sheet: int = 6,
-    spacing_mm: float = 5,
+    spacing_mm: float = 0.5,   # ← reduced: ~6px at 300 DPI, just enough for the cut line
     dpi: int = 300,
 ) -> bytes:
     """
@@ -164,8 +165,8 @@ def create_print_sheet(
         target_w: photo width in pixels
         target_h: photo height in pixels
         paper_size: paper size string
-        photos_per_sheet: target number of photos
-        spacing_mm: gap between photos in mm
+        photos_per_sheet: target number of photos (e.g. 10 for A4)
+        spacing_mm: gap between photos in mm (kept tiny — just for the cut guide)
         dpi: print DPI
 
     Returns:
@@ -173,68 +174,97 @@ def create_print_sheet(
     """
     # Paper dimensions in pixels at given DPI
     paper_sizes = {
-        "4x6_in": (int(4 * dpi), int(6 * dpi)),      # 1200x1800
-        "A4": (int(210 / 25.4 * dpi), int(297 / 25.4 * dpi)),  # 2480x3508
-        "Letter": (int(8.5 * dpi), int(11 * dpi)),    # 2550x3300
+        "4x6_in": (int(4 * dpi), int(6 * dpi)),                    # 1200×1800
+        "A4":     (int(210 / 25.4 * dpi), int(297 / 25.4 * dpi)),  # 2480×3508
+        "Letter": (int(8.5 * dpi), int(11 * dpi)),                  # 2550×3300
     }
 
     sheet_w, sheet_h = paper_sizes.get(paper_size, paper_sizes["4x6_in"])
-    spacing_px = int((spacing_mm / 25.4) * dpi)
+    # Minimum spacing: just wide enough to draw a single cut line (≈6 px)
+    spacing_px = max(int((spacing_mm / 25.4) * dpi), 6)
 
-    # Load the photo
-    photo = Image.open(io.BytesIO(photo_bytes))
-    from PIL import ImageDraw
+    # ── Grid search ──────────────────────────────────────────────────────────
+    # Try every column count and pick the layout that:
+    #   1. Fits all photos_per_sheet photos on the sheet
+    #   2. Wastes the least vertical space (fewest leftover rows)
+    #   3. Among ties, prefers the layout whose aspect ratio is closest to A4
+    best_cols, best_rows = None, None
+    best_waste = float("inf")
 
-    # Calculate grid dynamically, but respect photos_per_sheet limit
-    max_cols = (sheet_w - 40) // (target_w + spacing_px)
-    max_rows = (sheet_h - 40) // (target_h + spacing_px)
+    for try_cols in range(1, photos_per_sheet + 1):
+        try_rows = math.ceil(photos_per_sheet / try_cols)
 
-    # Cap total photos to photos_per_sheet
-    cols = max(1, max_cols)
-    rows = max(1, max_rows)
-    while rows * cols > photos_per_sheet and rows > 1:
-        rows -= 1
-    while rows * cols > photos_per_sheet and cols > 1:
-        cols -= 1
+        total_w = try_cols * target_w + (try_cols - 1) * spacing_px
+        total_h = try_rows * target_h + (try_rows - 1) * spacing_px
 
+        if total_w > sheet_w or total_h > sheet_h:
+            continue  # doesn't fit — skip
+
+        # Extra blank cells in the last row (waste)
+        waste = try_cols * try_rows - photos_per_sheet
+
+        sheet_ratio = sheet_h / sheet_w
+        layout_ratio = (try_rows * target_h) / max(try_cols * target_w, 1)
+        ratio_diff = abs(layout_ratio - sheet_ratio)
+
+        if (waste, ratio_diff) < (best_waste, float("inf") if best_cols is None or best_rows is None else
+                abs((best_rows * target_h) / max(best_cols * target_w, 1) - sheet_ratio)):
+            best_cols, best_rows = try_cols, try_rows
+            best_waste = waste
+
+    if best_cols is None or best_rows is None:
+        raise ValueError(
+            f"Cannot fit {photos_per_sheet} photos of size {target_w}×{target_h}px "
+            f"on a {paper_size} sheet at {dpi} DPI."
+        )
+
+    cols, rows = best_cols, best_rows
+    logger.info(f"Print sheet grid: {cols} cols × {rows} rows = {cols * rows} cells "
+                f"for {photos_per_sheet} photos on {paper_size}")
+
+    # Centre the grid on the sheet
     margin_x = (sheet_w - (cols * target_w + (cols - 1) * spacing_px)) // 2
     margin_y = (sheet_h - (rows * target_h + (rows - 1) * spacing_px)) // 2
 
-    # Create white sheet
+    # ── Render ───────────────────────────────────────────────────────────────
+    photo = Image.open(io.BytesIO(photo_bytes))
+    from PIL import ImageDraw
+
     sheet = Image.new("RGB", (sheet_w, sheet_h), (255, 255, 255))
     draw = ImageDraw.Draw(sheet)
 
-    def draw_dashed_rect(x0, y0, x1, y1):
-        dash_len = 20
-        space_len = 15
-        color = "#bbbbbb"
-        width = 2
-        # top
-        for x in range(int(x0), int(x1), dash_len + space_len):
-            draw.line([(x, y0), (min(x + dash_len, x1), y0)], fill=color, width=width)
-        # bottom
-        for x in range(int(x0), int(x1), dash_len + space_len):
-            draw.line([(x, y1), (min(x + dash_len, x1), y1)], fill=color, width=width)
-        # left
-        for y in range(int(y0), int(y1), dash_len + space_len):
-            draw.line([(x0, y), (x0, min(y + dash_len, y1))], fill=color, width=width)
-        # right
-        for y in range(int(y0), int(y1), dash_len + space_len):
-            draw.line([(x1, y), (x1, min(y + dash_len, y1))], fill=color, width=width)
+    def draw_dashed_rect(x0: int, y0: int, x1: int, y1: int) -> None:
+        """Draw a thin dashed rectangle as a cutting guide."""
+        dash_len = 12   # ← shorter dashes
+        space_len = 8   # ← tighter gaps
+        color = "#cccccc"
+        width = 1       # ← 1-pixel line (was 2)
 
-    # Paste photos in grid and add dashed cutting guides
+        # top & bottom edges
+        for x in range(x0, x1, dash_len + space_len):
+            end_x = min(x + dash_len, x1)
+            draw.line([(x, y0), (end_x, y0)], fill=color, width=width)
+            draw.line([(x, y1), (end_x, y1)], fill=color, width=width)
+
+        # left & right edges
+        for y in range(y0, y1, dash_len + space_len):
+            end_y = min(y + dash_len, y1)
+            draw.line([(x0, y), (x0, end_y)], fill=color, width=width)
+            draw.line([(x1, y), (x1, end_y)], fill=color, width=width)
+
+    photo_count = 0
     for r in range(rows):
         for c in range(cols):
+            if photo_count >= photos_per_sheet:
+                break
             x = margin_x + c * (target_w + spacing_px)
             y = margin_y + r * (target_h + spacing_px)
-            
-            # Paste the photo without any black border
             sheet.paste(photo, (x, y))
-            
-            # Draw a dashed cutting line right around the photo's edge
             draw_dashed_rect(x, y, x + target_w, y + target_h)
+            photo_count += 1
+        if photo_count >= photos_per_sheet:
+            break
 
-    # Encode
     buf = io.BytesIO()
     sheet.save(buf, format="JPEG", quality=95, dpi=(dpi, dpi))
     return buf.getvalue()

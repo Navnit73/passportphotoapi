@@ -1,46 +1,232 @@
 """
-Background validation and correction pipeline.
+Background removal and color replacement.
 
-Validation:
-  1. Sample edge pixels (corners + border midpoints)
-  2. Compute average RGB
-  3. Compare with target color
-  4. Check RGB deviation, brightness, variance
-
-Correction (if invalid):
-  Replace background using rembg with isnet-general-use model.
+Primary:  MODNet ONNX model (portrait-optimized matting)
+Fallback: rembg with u2net model
 """
 
 import logging
+import os
+import shutil
 from dataclasses import dataclass
 
 import cv2
 import numpy as np
+import onnxruntime as ort
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# ─── Singleton rembg session ───
-_rembg_session = None
+# ─── Config ───
+MODNET_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "modnet.onnx")
 
-def _get_rembg_session():
-    """Get or create the rembg session (singleton)."""
-    global _rembg_session
-    if _rembg_session is None:
-        logger.info("Initializing rembg session with isnet-general-use model...")
-        from rembg import new_session
-        _rembg_session = new_session("isnet-general-use")
-    return _rembg_session
-
-# ─── Background color map ───
 BG_COLORS = {
-    "white":      (255, 255, 255),
+    "white":       (255, 255, 255),
     "plain white": (255, 255, 255),
-    "light-gray": (243, 244, 246),
-    "light-blue": (239, 246, 255),
-    "blue":       (0, 71, 171),
-    "red":        (200, 30, 30),  # Standard passport red
+    "light-gray":  (243, 244, 246),
+    "light-blue":  (239, 246, 255),
+    "blue":        (0, 71, 171),
+    "red":         (200, 30, 30),
 }
 
+# ─── Singleton sessions ───
+_modnet_session = None
+_rembg_session = None
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Model Loading
+# ═══════════════════════════════════════════════════════════════
+
+def _download_modnet_model():
+    """Download MODNet ONNX from Hugging Face if missing."""
+    if os.path.exists(MODNET_MODEL_PATH):
+        return True
+    logger.info("Downloading MODNet ONNX model...")
+    try:
+        from huggingface_hub import hf_hub_download
+        path = hf_hub_download(repo_id="gradio/Modnet", filename="modnet.onnx")
+        shutil.copy(path, MODNET_MODEL_PATH)
+        logger.info("MODNet model downloaded.")
+        return True
+    except Exception as e:
+        logger.error(f"MODNet download failed: {e}")
+        return False
+
+
+def _get_modnet_session():
+    """Get or create MODNet ONNX session (singleton)."""
+    global _modnet_session
+    if _modnet_session is None:
+        if not _download_modnet_model():
+            _modnet_session = False
+            return _modnet_session
+        try:
+            opts = ort.SessionOptions()
+            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            _modnet_session = ort.InferenceSession(
+                MODNET_MODEL_PATH, opts, providers=["CPUExecutionProvider"]
+            )
+            logger.info("MODNet model loaded.")
+        except Exception as e:
+            logger.error(f"MODNet load error: {e}")
+            _modnet_session = False
+    return _modnet_session
+
+
+def _get_rembg_session():
+    """Get or create rembg u2net session (singleton fallback)."""
+    global _rembg_session
+    if _rembg_session is None:
+        try:
+            from rembg import new_session
+            _rembg_session = new_session("u2net")
+            logger.info("rembg u2net model loaded.")
+        except Exception as e:
+            logger.error(f"rembg load error: {e}")
+            _rembg_session = False
+    return _rembg_session
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Background Removal (MODNet → u2net fallback)
+# ═══════════════════════════════════════════════════════════════
+
+def _run_modnet(image_rgb: np.ndarray) -> np.ndarray | None:
+    """Run MODNet on an RGB array. Returns alpha matte (0-255) or None."""
+    session = _get_modnet_session()
+    if not session:
+        return None
+    try:
+        h, w, _ = image_rgb.shape
+
+        # MODNet expects fixed input size - keep original aspect ratio within max dimension
+        max_dim = 1024  # or 2048, whatever the model was trained on
+        scale = max_dim / max(h, w)
+        if scale < 1.0:
+            new_h, new_w = int(h * scale), int(w * scale)
+            im = cv2.resize(image_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        else:
+            new_h, new_w = h, w
+            im = image_rgb
+
+        # Pad to make dimensions multiples of 32 (common requirement for ONNX models)
+        pad_h = (32 - new_h % 32) % 32
+        pad_w = (32 - new_w % 32) % 32
+        im = cv2.copyMakeBorder(im, 0, pad_h, 0, pad_w, cv2.BORDER_REFLECT)
+        
+        # Normalize
+        im = (im.astype(np.float32) - 127.5) / 127.5
+        im = np.transpose(np.expand_dims(im, 0), (0, 3, 1, 2))
+
+        # Inference
+        name = session.get_inputs()[0].name
+        outputs = session.run(None, {name: im})
+        
+        # outputs[0] is a numpy array. Use np.asarray to satisfy type checkers 
+        # (like Pyright) that complain about indexing into list[Unknown] or SparseTensor.
+        matte_array = np.asarray(outputs[0])
+        matte = matte_array[0, 0]
+
+        # Remove padding from output
+        matte = matte[:new_h, :new_w]
+        
+        # Scale to 0-255 and resize back to original
+        matte = np.clip(matte * 255.0, 0, 255).astype(np.uint8)
+        
+        if new_h != h or new_w != w:
+            matte = cv2.resize(matte, (w, h), interpolation=cv2.INTER_LINEAR)
+            
+        return matte
+    except Exception as e:
+        logger.error(f"MODNet inference failed: {e}")
+        return None
+
+def _remove_background(image_rgb: np.ndarray) -> Image.Image:
+    """
+    Remove background from an RGB numpy array.
+    Returns RGBA PIL Image with transparent background.
+
+    Pipeline: MODNet first → rembg u2net fallback.
+    """
+    # 1. Try MODNet
+    matte = _run_modnet(image_rgb)
+
+    if matte is not None:
+        fg_ratio = np.count_nonzero(matte > 128) / matte.size
+        logger.info(f"MODNet foreground ratio: {fg_ratio:.4f}")
+        if fg_ratio >= 0.05:
+            logger.info("Using MODNet result.")
+            return Image.fromarray(np.dstack((image_rgb, matte)), "RGBA")
+
+    # 2. Fallback to rembg u2net
+    logger.info("Falling back to rembg (u2net).")
+    try:
+        session = _get_rembg_session()
+        if session is False:
+            logger.error("Skipping rembg fallback because session failed to load earlier.")
+            return Image.fromarray(image_rgb).convert("RGBA")
+            
+        from rembg import remove
+        pil_img = Image.fromarray(image_rgb)
+        result = remove(pil_img, session=session)
+        return result if isinstance(result, Image.Image) else Image.fromarray(image_rgb).convert("RGBA")
+    except Exception as e:
+        logger.error(f"rembg fallback failed: {e}")
+        return Image.fromarray(image_rgb).convert("RGBA")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Helpers
+# ═══════════════════════════════════════════════════════════════
+
+def _parse_bg_color(color_str: str) -> tuple[int, int, int]:
+    """Convert color string/hex to RGB tuple."""
+    s = color_str.lower().strip()
+    words = s.split()
+
+    if "red" in words:
+        return BG_COLORS["red"]
+    if "gray" in s or "grey" in s:
+        return BG_COLORS["light-gray"]
+    if "blue" in s:
+        return BG_COLORS["light-blue"] if "light" in s else BG_COLORS["blue"]
+    if any(w in s for w in ("white", "off-white", "cream", "light colored")):
+        return BG_COLORS["white"]
+    if s in BG_COLORS:
+        return BG_COLORS[s]
+    if s.startswith("#") and len(s) == 7:
+        return (int(s[1:3], 16), int(s[3:5], 16), int(s[5:7], 16))
+
+    logger.warning(f"Unknown bg color '{color_str}', defaulting to white")
+    return (255, 255, 255)
+
+
+def _sample_edge_pixels(image: np.ndarray) -> np.ndarray:
+    """Sample pixels from image edges (corners + midpoints + top strip)."""
+    h, w = image.shape[:2]
+    margin = min(10, h // 10, w // 10)
+    samples = []
+
+    # 4 corners
+    for cy, cx in [(0, 0), (0, w - margin), (h - margin, 0), (h - margin, w - margin)]:
+        samples.append(image[cy:cy + margin, cx:cx + margin].reshape(-1, 3))
+
+    # 4 border midpoints
+    mh, mw = h // 2, w // 2
+    for cy, cx in [(0, mw - margin // 2), (h - margin, mw - margin // 2),
+                   (mh - margin // 2, 0), (mh - margin // 2, w - margin)]:
+        cy, cx = max(0, min(cy, h - margin)), max(0, min(cx, w - margin))
+        samples.append(image[cy:cy + margin, cx:cx + margin].reshape(-1, 3))
+
+    # Top strip
+    samples.append(image[0:min(5, h), :].reshape(-1, 3))
+    return np.vstack(samples)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Public API  (used by routes.py and main.py)
+# ═══════════════════════════════════════════════════════════════
 
 @dataclass
 class BackgroundValidationResult:
@@ -53,242 +239,45 @@ class BackgroundValidationResult:
     message: str
 
 
-def _parse_bg_color(color_str: str) -> tuple[int, int, int]:
-    """Convert background color string to RGB tuple."""
-    color_str = color_str.lower().strip()
-
-    # 1. Smart mapping for descriptive strings
-    # Use spaces or exact matches to avoid accidental matches like "colored" -> "red"
-    words = color_str.split()
-    
-    if "red" in words:
-        return BG_COLORS["red"]
-    
-    if "gray" in color_str or "grey" in color_str:
-        return BG_COLORS["light-gray"]
-    
-    if "blue" in color_str:
-        if "light" in color_str:
-            return BG_COLORS["light-blue"]
-        return BG_COLORS["blue"]
-    
-    if "white" in color_str or "off-white" in color_str or "cream" in color_str or "light colored" in color_str:
-        return BG_COLORS["white"]
-
-    # 2. Check direct mapping
-    if color_str in BG_COLORS:
-        return BG_COLORS[color_str]
-
-    # Check hex color
-    if color_str.startswith("#") and len(color_str) == 7:
-        r = int(color_str[1:3], 16)
-        g = int(color_str[3:5], 16)
-        b = int(color_str[5:7], 16)
-        return (r, g, b)
-
-    # Default to white
-    logger.warning(f"Unknown background color '{color_str}', defaulting to white")
-    return (255, 255, 255)
-
-
-def _sample_edge_pixels(image: np.ndarray) -> np.ndarray:
-    """
-    Sample pixels from image edges for background analysis.
-
-    Samples from:
-    - 4 corners (3x3 blocks)
-    - 4 border midpoints (3x3 blocks)
-    - Additional border strip samples
-
-    Returns an Nx3 array of RGB values.
-    """
-    h, w = image.shape[:2]
-    samples = []
-
-    # Corner regions (top-left, top-right, bottom-left, bottom-right)
-    margin = min(10, h // 10, w // 10)
-    corners = [
-        (0, 0),                    # top-left
-        (0, w - margin),           # top-right
-        (h - margin, 0),           # bottom-left
-        (h - margin, w - margin),  # bottom-right
-    ]
-
-    for cy, cx in corners:
-        block = image[cy:cy + margin, cx:cx + margin]
-        samples.append(block.reshape(-1, 3))
-
-    # Border midpoints
-    mid_h, mid_w = h // 2, w // 2
-    midpoints = [
-        (0, mid_w - margin // 2),              # top-center
-        (h - margin, mid_w - margin // 2),     # bottom-center
-        (mid_h - margin // 2, 0),              # left-center
-        (mid_h - margin // 2, w - margin),     # right-center
-    ]
-
-    for cy, cx in midpoints:
-        cy = max(0, min(cy, h - margin))
-        cx = max(0, min(cx, w - margin))
-        block = image[cy:cy + margin, cx:cx + margin]
-        samples.append(block.reshape(-1, 3))
-
-    # Top strip (first 5 rows)
-    top_strip = image[0:min(5, h), :]
-    samples.append(top_strip.reshape(-1, 3))
-
-    return np.vstack(samples)
-
-
 def validate_background(
     image: np.ndarray,
     target_color: str = "plain white",
     rgb_tolerance: int = 10,
     max_variance: float = 15.0,
 ) -> BackgroundValidationResult:
-    """
-    Validate if the image background matches the target color.
+    """Check if the image background matches the target color."""
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    samples = _sample_edge_pixels(rgb)
 
-    Args:
-        image: BGR numpy array
-        target_color: target background color string
-        rgb_tolerance: max allowed RGB deviation per channel
-        max_variance: max allowed variance across samples (texture check)
-
-    Returns:
-        BackgroundValidationResult with is_valid flag and diagnostics
-    """
-    # Convert BGR to RGB for analysis
-    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    # Sample edge pixels
-    samples = _sample_edge_pixels(rgb_image)
-
-    # Compute average RGB
-    avg_rgb = samples.mean(axis=0)
-    avg_r, avg_g, avg_b = float(avg_rgb[0]), float(avg_rgb[1]), float(avg_rgb[2])
-
-    # Compute brightness (average of RGB channels)
+    avg = samples.mean(axis=0)
+    avg_r, avg_g, avg_b = float(avg[0]), float(avg[1]), float(avg[2])
     brightness = (avg_r + avg_g + avg_b) / 3.0
-
-    # Compute variance (texture detection)
     variance = float(samples.std())
+    target = _parse_bg_color(target_color)
+    dev = max(abs(avg_r - target[0]), abs(avg_g - target[1]), abs(avg_b - target[2]))
 
-    # Parse target color
-    target_rgb = _parse_bg_color(target_color)
-
-    # Compute per-channel deviation from target
-    deviations = [
-        abs(avg_r - target_rgb[0]),
-        abs(avg_g - target_rgb[1]),
-        abs(avg_b - target_rgb[2]),
-    ]
-    max_deviation = max(deviations)
-
-    # ─── Validate ───
     issues = []
+    if dev > rgb_tolerance:
+        issues.append(f"RGB deviation {dev:.1f} exceeds tolerance {rgb_tolerance}")
 
-    if max_deviation > rgb_tolerance:
-        issues.append(
-            f"RGB deviation {max_deviation:.1f} exceeds tolerance {rgb_tolerance}"
-        )
-
-    # Derive expected brightness from the target color instead of using a
-    # hardcoded threshold.  This ensures non-white backgrounds (red, blue,
-    # light-gray) are not incorrectly rejected.
-    target_brightness = sum(target_rgb) / 3.0
-    effective_brightness_min = max(target_brightness - 30, 0)
-
-    if brightness < effective_brightness_min:
-        issues.append(
-            f"Brightness {brightness:.0f} below minimum {effective_brightness_min:.0f} "
-            f"(expected ~{target_brightness:.0f} for '{target_color}')"
-        )
+    target_brightness = sum(target) / 3.0
+    if brightness < max(target_brightness - 30, 0):
+        issues.append(f"Brightness {brightness:.0f} too low for '{target_color}'")
 
     if variance > max_variance:
-        issues.append(
-            f"Variance {variance:.1f} exceeds max {max_variance} (possible texture)"
-        )
+        issues.append(f"Variance {variance:.1f} exceeds max {max_variance}")
 
     is_valid = len(issues) == 0
-    message = "Background valid" if is_valid else "; ".join(issues)
-
-    logger.info(
-        f"Background validation: valid={is_valid}, "
-        f"avg_rgb=({avg_r:.0f},{avg_g:.0f},{avg_b:.0f}), "
-        f"brightness={brightness:.0f}, deviation={max_deviation:.1f}, "
-        f"variance={variance:.1f}"
-    )
+    logger.info(f"BG validation: valid={is_valid}, rgb=({avg_r:.0f},{avg_g:.0f},{avg_b:.0f}), dev={dev:.1f}")
 
     return BackgroundValidationResult(
         is_valid=is_valid,
         avg_rgb=(avg_r, avg_g, avg_b),
         brightness=brightness,
-        rgb_deviation=max_deviation,
+        rgb_deviation=dev,
         variance=variance,
-        message=message,
+        message="Background valid" if is_valid else "; ".join(issues),
     )
-
-
-def correct_background_rembg(
-    image: np.ndarray,
-    target_color: str = "plain white",
-) -> np.ndarray:
-    """
-    Replace background using rembg with isnet-general-use model.
-
-    Args:
-        image: BGR numpy array
-        target_color: target background color string
-
-    Returns:
-        BGR numpy array with background replaced
-    """
-    logger.info("Using rembg for background removal")
-
-    try:
-        from rembg import remove
-
-        # Use shared singleton session to avoid reloading model weights
-        session = _get_rembg_session()
-
-        # rembg expects RGB input and returns RGBA
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        from PIL import Image
-        pil_image = Image.fromarray(rgb_image)
-
-        # Remove background → RGBA
-        # Use alpha matting and post-processing for sharper hair details and cleaner edges
-        result_rgba = remove(
-            pil_image, 
-            session=session,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=240,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=10,
-            post_process_mask=True
-        )
-
-        # Create target background
-        target_rgb = _parse_bg_color(target_color)
-        bg = Image.new("RGBA", result_rgba.size, (*target_rgb, 255))
-
-        # Composite person over background
-        bg.paste(result_rgba, mask=result_rgba.split()[3])
-
-        # Convert back to BGR numpy
-        result_rgb = np.array(bg.convert("RGB"))
-        result_bgr = cv2.cvtColor(result_rgb, cv2.COLOR_RGB2BGR)
-
-        logger.info(f"Background replaced with {target_color} via rembg (isnet-general-use)")
-        return result_bgr
-
-    except ImportError:
-        logger.error("rembg not installed — cannot use fallback")
-        raise ValueError("Background correction failed: rembg not available")
-    except Exception as e:
-        logger.error(f"rembg fallback failed: {e}")
-        raise ValueError(f"Background correction failed: {e}")
 
 
 def correct_background(
@@ -296,19 +285,31 @@ def correct_background(
     target_color: str = "plain white",
 ) -> tuple[np.ndarray, bool]:
     """
-    Background correction pipeline using rembg.
+    Remove background and replace with target color.
 
     Args:
         image: BGR numpy array
-        target_color: target background color
+        target_color: target background color string
 
     Returns:
-        (corrected_image, success) tuple
+        (corrected_bgr_image, success) tuple
     """
     try:
-        corrected = correct_background_rembg(image, target_color)
-        logger.info("Background correction succeeded (rembg)")
-        return corrected, True
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Remove background → RGBA
+        fg_rgba = _remove_background(rgb)
+
+        # Composite onto target color
+        target = _parse_bg_color(target_color)
+        bg = Image.new("RGBA", fg_rgba.size, (*target, 255))
+        bg.paste(fg_rgba, mask=fg_rgba.split()[3])
+
+        # Convert back to BGR
+        result = cv2.cvtColor(np.array(bg.convert("RGB")), cv2.COLOR_RGB2BGR)
+        logger.info(f"Background replaced with {target_color}")
+        return result, True
+
     except Exception as e:
         logger.error(f"Background correction failed: {e}")
         return image, False

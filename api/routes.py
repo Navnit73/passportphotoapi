@@ -16,7 +16,7 @@ import uuid
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends, Security
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends, Security, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
 
@@ -82,7 +82,8 @@ async def validate_photo(
     file_bytes = await image.read()
     
     try:
-        report = analyze_image(file_bytes, config, image.content_type)
+        # Provide a fallback string since UploadFile.content_type can be None
+        report = analyze_image(file_bytes, config, image.content_type or "unknown")
         return report
     except ValueError as e:
         logger.error(f"Validation failed: {e}")
@@ -101,6 +102,7 @@ async def validate_photo(
     summary="Process an image directly in one call",
 )
 async def process_image(
+    background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
     country_code: str = Form("US"),
     document_type: str = Form("passport"),
@@ -151,8 +153,8 @@ async def process_image(
     if processed_image is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Upload original to Cloudinary in background (or foreground since we need to store it)
-    upload_original(file_bytes, image.filename or "photo.jpg")
+    # Upload original to Cloudinary in background
+    background_tasks.add_task(upload_original, file_bytes, image.filename or "photo.jpg")
 
     try:
         # ─── Step 1: Face detection ───
