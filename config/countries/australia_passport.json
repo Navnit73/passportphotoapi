@@ -10,9 +10,8 @@
     "height_mm": 45,
      "aspect_ratio": 0.778,
 
-    "print_dpi": 400,
-    "space_from_top": 3
-  },
+    "print_dpi": 400
+      },
   "digital_requirements": {
     "required_resolution_px": {
       "width": 413,

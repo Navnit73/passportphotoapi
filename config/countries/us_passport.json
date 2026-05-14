@@ -9,9 +9,8 @@
     "width_in": 2,
     "height_in": 2,
     "aspect_ratio": 1.0,
-    "print_dpi": 300,
-    "space_from_top": 3
-  },
+    "print_dpi": 300
+      },
   "digital_requirements": {
     "required_resolution_px": {
       "width": 600,
@@ -25,7 +24,7 @@
       "width": 1200,
       "height": 1200
     },
-    "max_file_size_kb": 240,
+    "max_file_size_kb": 500,
     "format": [
       "jpg",
       "jpeg"
@@ -35,12 +34,12 @@
   "face_constraints": {
     "head_height_pct": {
       "min": 50,
-      "max": 69
+      "max": 70
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 56,
-        "max": 69
+        "min": 50,
+        "max": 70
       }
     },
     "top_margin_pct": {
@@ -65,7 +64,7 @@
   },
   "print_layout": {
     "paper_size": "A4",
-    "photos_per_sheet": 6,
+    "photos_per_sheet": 10,
     "spacing_mm": 5,
     "cut_guides": true
   },

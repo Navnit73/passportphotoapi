@@ -173,9 +173,6 @@ async def process_image(
             logger.warning(f"Hair detection failed, using face estimate: {e}")
             crown_y = face.top_of_head_y
 
-        # Use the more conservative (higher up) crown estimate
-        crown_y = min(crown_y, face.top_of_head_y)
-
         # ─── Step 3: Background validation ───
         bg_color = config.background_rules.color
         bg_validation = validate_background(cv_image, target_color=bg_color)
