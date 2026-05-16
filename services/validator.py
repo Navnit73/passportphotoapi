@@ -50,15 +50,23 @@ def analyze_image(file_bytes: bytes, config, content_type: str) -> ValidationRes
     )
 
     # --- 3. Image Resolution ---
-    min_res = config.digital_requirements.required_resolution_px or config.digital_requirements.required_resolution_px
+    min_res = config.digital_requirements.required_resolution_px
     min_w = min_res.width
     min_h = min_res.height
-    res_status = "success" if (w >= min_w and h >= min_h) else "error"
+    
+    # Check if already exact resolution (pre-cropped)
+    if w == min_w and h == min_h:
+        res_status = "error"
+        res_details = "Please upload original image not wrong croped image"
+    else:
+        res_status = "success" if (w >= min_w and h >= min_h) else "error"
+        res_details = "Meets minimum requirements" if res_status == "success" else f"Below minimum {min_w}x{min_h}"
+
     resolution = ValidationItem(
         label="Image Resolution",
         value=f"{w}x{h} px",
         status=res_status,
-        details="Meets minimum requirements" if res_status == "success" else f"Below minimum {min_w}x{min_h}",
+        details=res_details,
         target=f"min {min_w}x{min_h}"
     )
 

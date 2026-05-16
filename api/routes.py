@@ -153,6 +153,15 @@ async def process_image(
     if processed_image is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
+    # Check for pre-cropped images (must be larger than target to allow smart cropping)
+    h, w = processed_image.shape[:2]
+    if w == config.target_width_px and h == config.target_height_px:
+        raise HTTPException(
+            status_code=400,
+            
+            detail="Please upload original image not wrong croped image"
+        )
+
     # Upload original to Cloudinary in background
     background_tasks.add_task(upload_original, file_bytes, image.filename or "photo.jpg")
 
