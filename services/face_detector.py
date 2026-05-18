@@ -123,7 +123,7 @@ def _compute_tilt_angle(left_eye: Point, right_eye: Point) -> float:
 
 
 # ─── Head top multiplier (matches TS HEAD_TOP_MULTIPLIER) ───
-HEAD_TOP_MULTIPLIER = 1.34
+HEAD_TOP_MULTIPLIER = 1.31
 
 
 def detect_face(image: np.ndarray) -> FaceDetectionResult:
