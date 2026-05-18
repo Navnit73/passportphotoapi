@@ -25,7 +25,7 @@ def test_precrop_validation():
         resolution = res_json.get("resolution", {})
         print(f"Resolution Status: {resolution.get('status')}")
         print(f"Resolution Details: {resolution.get('details')}")
-        if resolution.get("status") == "error" and "wrong croped image" in resolution.get("details"):
+        if resolution.get("status") == "error" and "wrong cropped image" in resolution.get("details"):
             print("SUCCESS: Validation correctly flagged pre-cropped image.")
         else:
             print("FAILURE: Validation did not flag pre-cropped image correctly.")
@@ -47,7 +47,7 @@ def test_precrop_processing():
         res_json = response.json()
         detail = res_json.get("detail")
         print(f"Error Detail: {detail}")
-        if "wrong croped image" in detail:
+        if "wrong cropped image" in detail:
             print("SUCCESS: Process correctly blocked pre-cropped image.")
         else:
             print("FAILURE: Process returned 400 but message mismatch.")
@@ -70,7 +70,7 @@ def test_valid_processing():
     # We expect this to fail later (face detection) but it should pass the initial dimensions check.
     if response.status_code == 400:
         detail = response.json().get("detail")
-        if "wrong croped image" in detail:
+        if "wrong cropped image" in detail:
              print("FAILURE: Process blocked valid image incorrectly.")
         else:
              print(f"SUCCESS: Pass dimensions check (failed later as expected with: {detail})")

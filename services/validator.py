@@ -57,7 +57,7 @@ def analyze_image(file_bytes: bytes, config, content_type: str) -> ValidationRes
     # Check if already exact resolution (pre-cropped)
     if w == min_w and h == min_h:
         res_status = "error"
-        res_details = "Please upload original image not wrong croped image"
+        res_details = "Please upload original image not wrong cropped image"
     else:
         res_status = "success" if (w >= min_w and h >= min_h) else "error"
         res_details = "Meets minimum requirements" if res_status == "success" else f"Below minimum {min_w}x{min_h}"

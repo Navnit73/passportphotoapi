@@ -159,7 +159,7 @@ async def process_image(
         raise HTTPException(
             status_code=400,
             
-            detail="Please upload original image not wrong croped image"
+            detail="Please upload original image not wrong cropped image"
         )
 
     # Upload original to Cloudinary in background
