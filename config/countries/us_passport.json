@@ -38,8 +38,8 @@
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 50,
-        "max": 70
+        "min": 56,
+        "max": 69
       }
     },
     "top_margin_pct": {

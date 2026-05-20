@@ -153,13 +153,18 @@ async def process_image(
     if processed_image is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Check for pre-cropped images (must be larger than target to allow smart cropping)
+    # Check for pre-cropped or undersized images (must be larger than required resolution)
     h, w = processed_image.shape[:2]
-    if w == config.target_width_px and h == config.target_height_px:
+    min_w = config.digital_requirements.required_resolution_px.width +10
+    min_h = config.digital_requirements.required_resolution_px.height +10
+    if w <= min_w or h <= min_h:
         raise HTTPException(
             status_code=400,
-            
-            detail="Please upload original image not wrong cropped image"
+            detail=(
+                f"Image resolution ({w}x{h}) is below the required minimum of "
+          
+                f"Please upload a higher resolution photo."
+            ),
         )
 
     # Upload original to Cloudinary in background
