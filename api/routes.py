@@ -155,16 +155,16 @@ async def process_image(
 
     # Check for pre-cropped or undersized images (must be larger than required resolution)
     h, w = processed_image.shape[:2]
-    min_w = config.digital_requirements.required_resolution_px.width +10
-    min_h = config.digital_requirements.required_resolution_px.height +10
+    min_w = config.digital_requirements.required_resolution_px.width +15
+    min_h = config.digital_requirements.required_resolution_px.height +15
     if w <= min_w or h <= min_h:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Image resolution ({w}x{h}) is below the required minimum of "
-          
-                f"Please upload a higher resolution photo."
-            ),
+           detail=(
+            f"Your uploaded image resolution is too low ({w}x{h}). "
+            f"Minimum required resolution is {min_w}x{min_h}. "
+            f"Please upload a higher quality image."
+        ),
         )
 
     # Upload original to Cloudinary in background
