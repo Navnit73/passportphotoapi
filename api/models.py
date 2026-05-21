@@ -55,6 +55,7 @@ class ValidationResponse(BaseModel):
     """Comprehensive validation report response."""
     status: str = "success"
     overall_result: str = "PASS"  # PASS or FAIL
+    score: int = 100  # Score out of 100
     summary: list[str]
     suggestions: list[str] = []
     file_format: ValidationItem
@@ -64,6 +65,7 @@ class ValidationResponse(BaseModel):
     face_detection: ValidationItem
     eye_level: ValidationItem
     head_size: ValidationItem
+    head_tilt: ValidationItem
     orientation: ValidationItem
     dpi: Optional[ValidationItem] = None
 
