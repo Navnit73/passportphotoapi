@@ -55,7 +55,6 @@ def get_upload_path(upload_id: str) -> Path | None:
 def save_result(
     result_id: str,
     photo_bytes: bytes,
-    print_sheet_bytes: bytes | None = None,
     preview_bytes: bytes | None = None,
 ) -> dict:
     """
@@ -64,7 +63,6 @@ def save_result(
     Args:
         result_id: unique result ID
         photo_bytes: processed photo JPEG bytes
-        print_sheet_bytes: optional print sheet JPEG bytes
         preview_bytes: optional preview JPEG bytes
 
     Returns:
@@ -76,11 +74,6 @@ def save_result(
     photo_path.write_bytes(photo_bytes)
 
     paths = {"photo": str(photo_path)}
-
-    if print_sheet_bytes:
-        sheet_path = settings.result_dir / f"{result_id}_print.jpg"
-        sheet_path.write_bytes(print_sheet_bytes)
-        paths["print_sheet"] = str(sheet_path)
 
     if preview_bytes:
         preview_path = settings.result_dir / f"{result_id}_preview.jpg"
@@ -104,9 +97,7 @@ def get_result_path(result_id: str, file_type: str = "photo") -> Path | None:
     """
     _ensure_dirs()
 
-    if file_type == "print_sheet":
-        path = settings.result_dir / f"{result_id}_print.jpg"
-    elif file_type == "preview":
+    if file_type == "preview":
         path = settings.result_dir / f"{result_id}_preview.jpg"
     else:
         path = settings.result_dir / f"{result_id}.jpg"

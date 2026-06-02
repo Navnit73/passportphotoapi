@@ -34,7 +34,6 @@ class ProcessResponse(BaseModel):
     status: str = "success"
     result_id: str
     image_url: str
-    print_sheet_url: Optional[str] = None
     preview_url: Optional[str] = None
     dimensions: str
     format: str = "JPEG"

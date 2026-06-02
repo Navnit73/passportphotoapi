@@ -4,7 +4,6 @@ API routes for the passport photo processing system.
 POST /upload    — Upload an image, get upload_id
 POST /process   — Process an uploaded image for a country
 GET  /download/{id}           — Download processed photo
-GET  /download/{id}/print     — Download print sheet
 GET  /countries               — List all supported countries
 GET  /countries/{code}        — Get specific country config
 GET  /health                  — Health check
@@ -31,7 +30,7 @@ from api.models import (
 from config.countries.loader import get_all_configs, get_config, list_supported
 from config.settings import settings
 from services.background import correct_background, validate_background
-from services.compressor import compress_to_jpeg, create_print_sheet
+from services.compressor import compress_to_jpeg
 from services.cropper import compute_crop
 from services.face_detector import detect_face
 from services.hair_detector import detect_hair_crown
@@ -116,8 +115,8 @@ async def process_image(
     4. Background validation/correction
     5. Compute crop
     6. Resize + compress
-    7. Generate preview and print sheet
-    8. Upload all results to Cloudinary
+    7. Generate preview
+    8. Upload results to Cloudinary
     """
     start_time = time.time()
 
@@ -225,17 +224,7 @@ async def process_image(
             target_dpi=target_dpi,
         )
 
-        # ─── Step 7: Print sheet ───
-        print_sheet_bytes = create_print_sheet(
-            photo_bytes,
-            target_w=config.target_width_px,
-            target_h=config.target_height_px,
-            paper_size=config.print_layout.paper_size,
-            spacing_mm=config.print_layout.spacing_mm,
-            dpi=target_dpi,
-        )
-
-        # ─── Step 8: Preview Image ───
+        # ─── Step 7: Preview Image ───
         preview_bytes = create_preview_image(
             crop_result.image,
             config,
@@ -244,9 +233,9 @@ async def process_image(
             crop_result.top_margin_pct,
         )
 
-        # ─── Step 9: Save results to Cloudinary ───
+        # ─── Step 8: Save results to Cloudinary ───
         result_id = str(uuid.uuid4())
-        urls = upload_results(result_id, photo_bytes, print_sheet_bytes, preview_bytes)
+        urls = upload_results(result_id, photo_bytes, preview_bytes)
 
         elapsed = time.time() - start_time
         logger.info(f"Processing complete in {elapsed:.2f}s — result_id={result_id}")
@@ -255,7 +244,6 @@ async def process_image(
             status="success",
             result_id=result_id,
             image_url=urls.get("image_url", ""),
-            print_sheet_url=urls.get("print_sheet_url"),
             preview_url=urls.get("preview_url"),
             dimensions=f"{config.target_width_px}x{config.target_height_px}",
             format="JPEG",

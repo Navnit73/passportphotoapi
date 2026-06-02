@@ -57,7 +57,6 @@ def download_image(url: str) -> np.ndarray:
 def upload_results(
     result_id: str,
     photo_bytes: bytes,
-    print_sheet_bytes: bytes | None = None,
     preview_bytes: bytes | None = None,
 ) -> dict:
     """
@@ -77,16 +76,7 @@ def upload_results(
     )
     urls["image_url"] = res.get("secure_url")
     
-    # 2. Print Sheet
-    if print_sheet_bytes:
-        res = cloudinary.uploader.upload(
-            print_sheet_bytes,
-            folder="passport/results",
-            public_id=f"{result_id}_print",
-        )
-        urls["print_sheet_url"] = res.get("secure_url")
-        
-    # 3. Preview
+    # 2. Preview
     if preview_bytes:
         res = cloudinary.uploader.upload(
             preview_bytes,
