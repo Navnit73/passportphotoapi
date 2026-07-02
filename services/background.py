@@ -24,9 +24,9 @@ BG_COLORS = {
     "white":       (255, 255, 255),
     "plain white": (255, 255, 255),
     "light-gray":  (243, 244, 246),
-    "light-blue":  (239, 246, 255),
-    "blue":        (0, 71, 171),
-    "red":         (200, 30, 30),
+    "light-blue":   (255, 255, 255),
+    "blue":         (255, 255, 255),
+    "red":         (255, 255, 255),
 }
 
 # ─── Singleton sessions ───

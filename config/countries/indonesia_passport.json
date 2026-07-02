@@ -30,7 +30,7 @@
       "jpeg",
       "png"
     ],
-    "background_color": "red"
+    "background_color": "light-gray"
   },
   "face_constraints": {
     "head_height_pct": {
@@ -59,7 +59,7 @@
     "both_ears_visible": false
   },
   "background_rules": {
-    "color": "plain red (medium shade, uniform)",
+    "color": "plain light-gray (medium shade, uniform)",
     "shadows_allowed": false,
     "texture_allowed": false
   },
