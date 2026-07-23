@@ -13,18 +13,18 @@
       },
   "digital_requirements": {
     "required_resolution_px": {
-      "width": 413,
-      "height": 531
+      "width": 630,
+      "height": 810
     },
     "min_resolution_px": {
-      "width": 350,
-      "height": 450
+      "width": 630,
+      "height": 810
     },
     "max_resolution_px": {
-      "width": 1000,
-      "height": 1300
+      "width": 630,
+      "height": 810
     },
-    "max_file_size_kb": 500,
+    "max_file_size_kb": 250,
     "format": [
       "jpg",
       "jpeg"
