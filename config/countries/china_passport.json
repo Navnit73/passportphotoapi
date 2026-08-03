@@ -13,8 +13,8 @@
       },
   "digital_requirements": {
     "required_resolution_px": {
-      "width": 390,
-      "height": 567
+     "width": 354,
+      "height": 472
     },
     "min_resolution_px": {
       "width": 354,
