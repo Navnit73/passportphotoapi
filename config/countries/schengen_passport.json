@@ -5,6 +5,7 @@
     "code": "EU"
   },
   "document_type": "passport",
+    "max_file_size_kb": 150,
   "photo_spec": {
     "width_mm": 35,
     "height_mm": 45,
