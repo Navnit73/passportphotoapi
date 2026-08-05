@@ -12,13 +12,13 @@
     "print_dpi": 400
       },
   "digital_requirements": {
-    "required_resolution_px": {
-      "width": 413,
-      "height": 531
+  "required_resolution_px": {
+      "width": 630,
+      "height": 810
     },
     "min_resolution_px": {
-      "width": 350,
-      "height": 450
+      "width": 630,
+      "height": 810
     },
     "max_resolution_px": {
       "width": 1000,
