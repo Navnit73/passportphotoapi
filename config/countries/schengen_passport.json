@@ -10,7 +10,7 @@
     "width_mm": 35,
     "height_mm": 45,
     "aspect_ratio": 0.778,
-    "print_dpi": 400
+    "print_dpi": 300
       },
   "digital_requirements": {
     "required_resolution_px": {
@@ -25,7 +25,7 @@
       "width": 1000,
       "height": 1300
     },
-    "max_file_size_kb": 500,
+    "max_file_size_kb": 300,
     "format": [
       "jpg",
       "jpeg"
