@@ -5,13 +5,13 @@
     "code": "EU"
   },
   "document_type": "passport",
-    "max_file_size_kb": 150,
+  "max_file_size_kb": 150,
   "photo_spec": {
     "width_mm": 35,
     "height_mm": 45,
     "aspect_ratio": 0.778,
-    "print_dpi": 300
-      },
+    "print_dpi": 400
+  },
   "digital_requirements": {
     "required_resolution_px": {
       "width": 630,
@@ -26,10 +26,7 @@
       "height": 1300
     },
     "max_file_size_kb": 300,
-    "format": [
-      "jpg",
-      "jpeg"
-    ],
+    "format": ["jpg", "jpeg"],
     "background_color": "light-gray"
   },
   "face_constraints": {

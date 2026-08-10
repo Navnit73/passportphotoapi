@@ -10,10 +10,10 @@
     "height_mm": 48,
     "aspect_ratio": 0.688,
     "print_dpi": 300
-      },
+  },
   "digital_requirements": {
     "required_resolution_px": {
-     "width": 354,
+      "width": 354,
       "height": 472
     },
     "min_resolution_px": {
@@ -25,10 +25,7 @@
       "height": 560
     },
     "max_file_size_kb": 120,
-    "format": [
-      "jpg",
-      "jpeg"
-    ],
+    "format": ["jpg", "jpeg"],
     "background_color": "white"
   },
   "face_constraints": {
