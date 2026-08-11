@@ -34,7 +34,7 @@
   "face_constraints": {
     "head_height_pct": {
       "min": 50,
-      "max": 70
+      "max": 69
     },
     "eye_position": {
       "from_bottom_pct": {
