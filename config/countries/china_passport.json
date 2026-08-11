@@ -40,7 +40,7 @@
       }
     },
     "top_margin_pct": {
-      "min": 4,
+      "min": 3,
       "recommended": 5
     },
     "chin_to_bottom_pct": {
@@ -52,7 +52,7 @@
     "expression": "neutral",
     "eyes_open": true,
     "mouth_closed": true,
-    "both_ears_visible": false
+    "both_ears_visible": true
   },
   "background_rules": {
     "color": "white",
@@ -68,9 +68,9 @@
   "auto_crop_config": {
     "head_top_multiplier": 1.2,
     "eye_line_target_pct": 0.6,
-    "safe_padding_pct": 6
+    "safe_padding_pct": 5
   },
   "data_source": "official",
-  "source_url": "https://www.schengenvisainfo.com/photo-requirements/",
-  "source_authority": "Schengen Visa Information \u2013 ICAO Standard"
+  "source_url": "https://www.visaforchina.cn/",
+  "source_authority": "Department of Consular Affairs of the Ministry of Foreign Affairs of China"
 }
