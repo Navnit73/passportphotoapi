@@ -8,16 +8,16 @@
   "photo_spec": {
     "width_mm": 33,
     "height_mm": 48,
-    "aspect_ratio": 0.688,
+    "aspect_ratio": 0.75,
     "print_dpi": 300
   },
   "digital_requirements": {
     "required_resolution_px": {
-    "width": 420,
+      "width": 420,
       "height": 560
     },
     "min_resolution_px": {
-         "width": 420,
+      "width": 420,
       "height": 560
     },
     "max_resolution_px": {
@@ -35,7 +35,7 @@
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 50,
+        "min": 54,
         "max": 65
       }
     },
