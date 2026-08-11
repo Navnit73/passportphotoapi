@@ -8,7 +8,7 @@
   "photo_spec": {
     "width_mm": 33,
     "height_mm": 48,
-    "aspect_ratio": 0.688,
+    "aspect_ratio": 0.6875,
     "print_dpi": 300
   },
   "digital_requirements": {
@@ -30,21 +30,21 @@
   },
   "face_constraints": {
     "head_height_pct": {
-      "min": 58,
-      "max": 69
+      "min": 40,
+      "max": 70
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 50,
+        "min": 54,
         "max": 65
       }
     },
     "top_margin_pct": {
-      "min": 3,
-      "recommended": 5
+      "min": 2,
+      "recommended": 8
     },
     "chin_to_bottom_pct": {
-      "min": 7
+      "min": 10
     }
   },
   "pose_rules": {
@@ -66,9 +66,9 @@
     "cut_guides": true
   },
   "auto_crop_config": {
-    "head_top_multiplier": 1.2,
-    "eye_line_target_pct": 0.6,
-    "safe_padding_pct": 5
+    "head_top_multiplier": 1,
+    "eye_line_target_pct": 0.54,
+    "safe_padding_pct":2
   },
   "data_source": "official",
   "source_url": "https://www.schengenvisainfo.com/photo-requirements/",
