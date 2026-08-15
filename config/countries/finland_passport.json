@@ -6,25 +6,25 @@
   },
   "document_type": "passport",
   "photo_spec": {
-    "width_mm": 35,
-    "height_mm": 45,
-    "aspect_ratio": 0.778,
+    "width_mm": 36,
+    "height_mm": 47,
+    "aspect_ratio": 0.766,
     "print_dpi": 300
-      },
+  },
   "digital_requirements": {
     "required_resolution_px": {
-      "width": 413,
-      "height": 531
+      "width": 500,
+      "height": 653
     },
     "min_resolution_px": {
-      "width": 350,
-      "height": 450
+      "width": 424,
+      "height": 554
     },
     "max_resolution_px": {
-      "width": 1000,
-      "height": 1300
+      "width": 1211,
+      "height": 1582
     },
-    "max_file_size_kb": 500,
+    "max_file_size_kb": 250,
     "format": [
       "jpg",
       "jpeg"
@@ -33,8 +33,8 @@
   },
   "face_constraints": {
     "head_height_pct": {
-      "min": 70,
-      "max": 80
+      "min": 68,
+      "max": 77
     },
     "eye_position": {
       "from_bottom_pct": {
@@ -43,11 +43,11 @@
       }
     },
     "top_margin_pct": {
-      "min": 5,
-      "recommended": 8
+      "min": 8,
+      "recommended": 10
     },
     "chin_to_bottom_pct": {
-      "min": 5
+      "min": 15
     }
   },
   "pose_rules": {
@@ -55,7 +55,7 @@
     "expression": "neutral",
     "eyes_open": true,
     "mouth_closed": true,
-    "both_ears_visible": true
+    "both_ears_visible": false
   },
   "background_rules": {
     "color": "plain light gray",
@@ -74,6 +74,6 @@
     "safe_padding_pct": 5
   },
   "data_source": "official",
-  "source_url": "https://www.schengenvisainfo.com/photo-requirements/",
-  "source_authority": "Schengen Visa Information \u2013 ICAO Standard"
+  "source_url": "https://poliisi.fi/en/submitting-passport-photographs",
+  "source_authority": "Finnish Police (Poliisi) \u2013 National Passport Photo Instructions"
 }
