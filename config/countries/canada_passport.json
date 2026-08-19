@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "country": {
+    "name": "Canada",
+    "code": "CA"
+  },
+  "document_type": "passport",
+  "photo_spec": {
+    "width_mm": 50,
+    "height_mm": 70,
+    "aspect_ratio": 0.714,
+    "print_dpi": 300
+  },
+  "digital_requirements": {
+    "required_resolution_px": {
+      "width": 1200,
+      "height": 1800
+    },
+    "min_resolution_px": {
+      "width": 1200,
+      "height": 1800
+    },
+    "max_resolution_px": {
+      "width": 3000,
+      "height": 4500
+    },
+    "max_file_size_kb": 4096,
+    "format": [
+      "jpg",
+      "jpeg"
+    ],
+    "background_color": "white"
+  },
+  "face_constraints": {
+    "head_height_mm": {
+      "min": 31,
+      "max": 36
+    },
+    "head_height_pct": {
+      "min": 45,
+      "max": 50
+    },
+    "eye_position": {
+      "from_bottom_pct": {
+        "min": 40,
+        "max": 40
+      }
+    },
+    "top_margin_pct": {
+      "not_specified": true
+    },
+    "chin_to_bottom_pct": {
+      "not_specified": true
+    }
+  },
+  "pose_rules": {
+    "head_tilt_allowed": false,
+    "head_rotation_allowed": false,
+    "expression": "neutral",
+    "eyes_open": true,
+    "mouth_closed": true,
+    "face_forward": true,
+    "shoulders_squared": true,
+    "face_centered": true
+  },
+  "background_rules": {
+    "color": "white",
+    "shadows_allowed": false,
+    "texture_allowed": false,
+    "glare_allowed": false,
+    "flash_reflections_allowed": false
+  },
+  "appearance_rules": {
+    "natural_skin_tone": true,
+    "photo_must_be_unaltered": true,
+    "filters_allowed": false,
+    "ai_editing_allowed": false,
+    "retouching_allowed": false
+  },
+  "print_layout": {
+    "paper_size": "A4",
+    "photos_per_sheet": 6,
+    "spacing_mm": 5,
+    "cut_guides": true
+  },
+  "auto_crop_config": {
+    "head_height_target_pct": 47.5,
+    "safe_padding_pct": 5
+  },
+  "data_source": "official",
+  "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-passports/photos.html",
+  "source_authority": "Government of Canada"
+}
