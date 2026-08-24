@@ -29,53 +29,38 @@
       "jpg",
       "jpeg"
     ],
-    "background_color": "white"
+    "background_color": "plain white"
   },
   "face_constraints": {
-    "head_height_mm": {
-      "min": 31,
-      "max": 36
-    },
     "head_height_pct": {
       "min": 45,
-      "max": 50
+      "max": 51
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 40,
-        "max": 40
+        "min": 45,
+        "max": 60
       }
     },
     "top_margin_pct": {
-      "not_specified": true
+      "min": 5,
+      "recommended": 8
     },
     "chin_to_bottom_pct": {
-      "not_specified": true
+      "min": 5
     }
   },
   "pose_rules": {
     "head_tilt_allowed": false,
-    "head_rotation_allowed": false,
     "expression": "neutral",
     "eyes_open": true,
     "mouth_closed": true,
-    "face_forward": true,
-    "shoulders_squared": true,
-    "face_centered": true
+    "both_ears_visible": false
   },
   "background_rules": {
-    "color": "white",
+    "color": "plain white",
     "shadows_allowed": false,
-    "texture_allowed": false,
-    "glare_allowed": false,
-    "flash_reflections_allowed": false
-  },
-  "appearance_rules": {
-    "natural_skin_tone": true,
-    "photo_must_be_unaltered": true,
-    "filters_allowed": false,
-    "ai_editing_allowed": false,
-    "retouching_allowed": false
+    "texture_allowed": false
   },
   "print_layout": {
     "paper_size": "A4",
@@ -84,7 +69,8 @@
     "cut_guides": true
   },
   "auto_crop_config": {
-    "head_height_target_pct": 47.5,
+    "head_top_multiplier": 1.24,
+    "eye_line_target_pct": 0.6,
     "safe_padding_pct": 5
   },
   "data_source": "official",
