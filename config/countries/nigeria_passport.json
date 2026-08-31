@@ -17,12 +17,12 @@
       "height": 800
     },
     "min_resolution_px": {
-      "width": 350,
-      "height": 450
+     "width": 600,
+      "height": 800
     },
     "max_resolution_px": {
-      "width": 1000,
-      "height": 1300
+      "width": 600,
+      "height": 800
     },
     "max_file_size_kb": 2048,
     "format": [
