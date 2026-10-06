@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "country": {
+    "name": "Foto-3x4",
+    "code": "BR-3*4"
+  },
+  "document_type": "passport",
+  "photo_spec": {
+    "width_mm": 30,
+    "height_mm": 40,
+    "aspect_ratio": 0.75,
+    "print_dpi": 300
+  },
+  "digital_requirements": {
+    "required_resolution_px": {
+      "width": 354,
+      "height": 472
+    },
+    "min_resolution_px": {
+      "width": 354,
+      "height": 472
+    },
+    "max_resolution_px": {
+      "width": 1200,
+      "height": 1600
+    },
+    "max_file_size_kb": 500,
+    "format": [
+      "jpg",
+      "jpeg"
+    ],
+    "background_color": "white"
+  },
+  "face_constraints": {
+    "head_height_pct": {
+      "min": 50,
+      "max": 65
+    },
+    "eye_position": {
+      "from_bottom_pct": {
+        "min": 55,
+        "max": 70
+      }
+    },
+    "top_margin_pct": {
+      "min": 5,
+      "recommended": 8
+    },
+    "chin_to_bottom_pct": {
+      "min": 15
+    }
+  },
+  "pose_rules": {
+    "head_tilt_allowed": false,
+    "expression": "neutral",
+    "eyes_open": true,
+    "mouth_closed": true,
+    "both_ears_visible": false
+  },
+  "background_rules": {
+    "color": "plain white",
+    "shadows_allowed": false,
+    "texture_allowed": false
+  },
+  "print_layout": {
+    "paper_size": "10x15",
+    "photos_per_sheet": 10,
+    "spacing_mm": 0.5,
+    "cut_guides": true
+  },
+  "auto_crop_config": {
+    "head_top_multiplier": 1.3,
+    "eye_line_target_pct": 0.62,
+    "safe_padding_pct": 5
+  },
+  "data_source": "common_practice",
+  "source_url": "",
+  "source_authority": "Common practice in Brazil (no single official authority; requirements set by each requesting institution)"
+}
