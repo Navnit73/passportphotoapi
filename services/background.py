@@ -23,7 +23,7 @@ MODNET_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "mo
 BG_COLORS = {
     "white":       (255, 255, 255),
     "plain white": (255, 255, 255),
-    "light-gray":  (243, 244, 246),
+   "light-gray": (231, 232, 234),
     "light-blue":   (255, 255, 255),
     "blue":         (255, 255, 255),
     "red":         (255, 255, 255),
