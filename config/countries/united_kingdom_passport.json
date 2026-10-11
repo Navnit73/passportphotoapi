@@ -58,7 +58,7 @@
     "both_ears_visible": false
   },
   "background_rules": {
-    "color": "plain light colored (white, cream, or light grey)",
+    "color": "white",
     "shadows_allowed": false,
     "texture_allowed": false
   },
