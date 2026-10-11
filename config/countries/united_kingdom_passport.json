@@ -29,7 +29,7 @@
       "jpg",
       "jpeg"
     ],
-    "background_color": "light-gray"
+    "background_color": "white"
   },
   "face_constraints": {
     "head_height_pct": {
