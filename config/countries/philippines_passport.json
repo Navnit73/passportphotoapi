@@ -1,0 +1,79 @@
+{
+    "schema_version": "1.0",
+    "country": {
+        "name": "Philippines",
+        "code": "PH"
+    },
+    "document_type": "passport",
+    "photo_spec": {
+        "width_mm": 35,
+        "height_mm": 45,
+        "aspect_ratio": 0.7778,
+        "print_dpi": 600
+    },
+    "digital_requirements": {
+        "required_resolution_px": {
+            "width": 827,
+            "height": 1063
+        },
+        "min_resolution_px": {
+            "width": 413,
+            "height": 531
+        },
+        "max_resolution_px": {
+            "width": 1200,
+            "height": 1543
+        },
+        "max_file_size_kb": 500,
+        "format": [
+            "jpg",
+            "jpeg"
+        ],
+        "background_color": "white"
+    },
+    "face_constraints": {
+        "head_height_pct": {
+            "min": 70,
+            "max": 80
+        },
+        "eye_position": {
+            "from_bottom_pct": {
+                "min": 50,
+                "max": 60
+            }
+        },
+        "top_margin_pct": {
+            "min": 5,
+            "recommended": 8
+        },
+        "chin_to_bottom_pct": {
+            "min": 10
+        }
+    },
+    "pose_rules": {
+        "head_tilt_allowed": false,
+        "expression": "neutral",
+        "eyes_open": true,
+        "mouth_closed": true,
+        "both_ears_visible": false
+    },
+    "background_rules": {
+        "color": "plain white (#FFFFFF)",
+        "shadows_allowed": false,
+        "texture_allowed": false
+    },
+    "print_layout": {
+        "paper_size": "A4",
+        "photos_per_sheet": 8,
+        "spacing_mm": 5,
+        "cut_guides": true
+    },
+    "auto_crop_config": {
+        "head_top_multiplier": 1.24,
+        "eye_line_target_pct": 0.56,
+        "safe_padding_pct": 5
+    },
+    "data_source": "third_party",
+    "source_url": "https://www.timpson.co.uk/services/passport-photos/international-passport-photo-sizes/philippines",
+    "source_authority": "Philippine passport photo guidance (DFA standard, secondary source)"
+}

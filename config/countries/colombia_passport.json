@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "country": {
+    "name": "Colombia",
+    "code": "CO"
+  },
+  "document_type": "passport",
+  "photo_spec": {
+    "width_mm": 30,
+    "height_mm": 40,
+    "aspect_ratio": 0.75,
+    "print_dpi": 600
+  },
+  "digital_requirements": {
+    "required_resolution_px": {
+      "width": 709,
+      "height": 945
+    },
+    "min_resolution_px": {
+      "width": 354,
+      "height": 472
+    },
+    "max_resolution_px": {
+      "width": 1200,
+      "height": 1600
+    },
+    "max_file_size_kb": 300,
+    "format": [
+      "jpg",
+      "jpeg"
+    ],
+    "background_color": "white"
+  },
+  "face_constraints": {
+    "head_height_pct": {
+      "min": 70,
+      "max": 80
+    },
+    "eye_position": {
+      "from_bottom_pct": {
+        "min": 50,
+        "max": 60
+      }
+    },
+    "top_margin_pct": {
+      "min": 5,
+      "recommended": 8
+    },
+    "chin_to_bottom_pct": {
+      "min": 15
+    }
+  },
+  "pose_rules": {
+    "head_tilt_allowed": false,
+    "expression": "neutral",
+    "eyes_open": true,
+    "mouth_closed": true,
+    "both_ears_visible": false
+  },
+  "background_rules": {
+    "color": "plain white (#FFFFFF)",
+    "shadows_allowed": false,
+    "texture_allowed": false
+  },
+  "print_layout": {
+    "paper_size": "A4",
+    "photos_per_sheet": 8,
+    "spacing_mm": 5,
+    "cut_guides": true
+  },
+  "auto_crop_config": {
+    "head_top_multiplier": 1.24,
+    "eye_line_target_pct": 0.55,
+    "safe_padding_pct": 5
+  },
+  "data_source": "official",
+  "source_url": "https://cancilleria.gov.co/normograma/compilacion/docs/resolucion_minrelaciones_10829_2024.htm",
+  "source_authority": "Ministerio de Relaciones Exteriores de Colombia (Resolución 10829 de 2024, ICAO standard)"
+}

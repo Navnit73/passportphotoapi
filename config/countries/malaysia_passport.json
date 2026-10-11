@@ -1,0 +1,79 @@
+{
+    "schema_version": "1.0",
+    "country": {
+        "name": "Malaysia",
+        "code": "MY"
+    },
+    "document_type": "passport",
+    "photo_spec": {
+        "width_mm": 35,
+        "height_mm": 50,
+        "aspect_ratio": 0.7,
+        "print_dpi": 600
+    },
+    "digital_requirements": {
+        "required_resolution_px": {
+            "width": 827,
+            "height": 1181
+        },
+        "min_resolution_px": {
+            "width": 413,
+            "height": 591
+        },
+        "max_resolution_px": {
+            "width": 1200,
+            "height": 1714
+        },
+        "max_file_size_kb": 500,
+        "format": [
+            "jpg",
+            "jpeg"
+        ],
+        "background_color": "white"
+    },
+    "face_constraints": {
+        "head_height_pct": {
+            "min": 50,
+            "max": 60
+        },
+        "eye_position": {
+            "from_bottom_pct": {
+                "min": 42,
+                "max": 55
+            }
+        },
+        "top_margin_pct": {
+            "min": 20,
+            "recommended": 20
+        },
+        "chin_to_bottom_pct": {
+            "min": 20
+        }
+    },
+    "pose_rules": {
+        "head_tilt_allowed": false,
+        "expression": "neutral",
+        "eyes_open": true,
+        "mouth_closed": true,
+        "both_ears_visible": false
+    },
+    "background_rules": {
+        "color": "plain white (#FFFFFF)",
+        "shadows_allowed": false,
+        "texture_allowed": false
+    },
+    "print_layout": {
+        "paper_size": "A4",
+        "photos_per_sheet": 8,
+        "spacing_mm": 5,
+        "cut_guides": true
+    },
+    "auto_crop_config": {
+        "head_top_multiplier": 1.24,
+        "eye_line_target_pct": 0.47,
+        "safe_padding_pct": 5
+    },
+    "data_source": "third_party",
+    "source_url": "https://security.timpson.co.uk/services/passport-photos/international-passport-photo-sizes/malaysia",
+    "source_authority": "Malaysian passport photo guidance (secondary source, ICAO-based)"
+}
