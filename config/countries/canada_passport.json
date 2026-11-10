@@ -14,15 +14,15 @@
   "digital_requirements": {
     "required_resolution_px": {
       "width": 1200,
-      "height": 1800
+      "height": 1680
     },
     "min_resolution_px": {
       "width": 1200,
-      "height": 1800
+      "height": 1680
     },
     "max_resolution_px": {
       "width": 3000,
-      "height": 4500
+      "height": 4200
     },
     "max_file_size_kb": 4096,
     "format": [
@@ -38,8 +38,8 @@
     },
     "eye_position": {
       "from_bottom_pct": {
-        "min": 45,
-        "max": 60
+        "min": 62,
+        "max": 72
       }
     },
     "top_margin_pct": {
