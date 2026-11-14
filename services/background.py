@@ -5,6 +5,7 @@ Primary:  MODNet ONNX model (portrait-optimized matting)
 Fallback: rembg with u2net model
 """
 
+import io
 import logging
 import os
 import shutil
@@ -164,16 +165,17 @@ def _remove_background(image_rgb: np.ndarray) -> Image.Image:
     try:
         session = _get_rembg_session()
         if session is False:
-            logger.error("Skipping rembg fallback because session failed to load earlier.")
-            return Image.fromarray(image_rgb).convert("RGBA")
-            
+            raise RuntimeError("rembg session unavailable")
+
         from rembg import remove
         pil_img = Image.fromarray(image_rgb)
         result = remove(pil_img, session=session)
-        return result if isinstance(result, Image.Image) else Image.fromarray(image_rgb).convert("RGBA")
+        if not isinstance(result, Image.Image):
+            raise RuntimeError(f"unexpected rembg output type: {type(result).__name__}")
+        return result.convert("RGBA")
     except Exception as e:
         logger.error(f"rembg fallback failed: {e}")
-        return Image.fromarray(image_rgb).convert("RGBA")
+        raise RuntimeError(f"MODNet and rembg fallback failed: {e}") from e
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -278,6 +280,26 @@ def validate_background(
         variance=variance,
         message="Background valid" if is_valid else "; ".join(issues),
     )
+
+
+def remove_background(image: np.ndarray) -> bytes:
+    """
+    Remove background from a BGR image and return transparent PNG bytes.
+
+    Args:
+        image: BGR numpy array
+
+    Returns:
+        PNG bytes with transparent background (RGBA)
+    """
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    fg_rgba = _remove_background(rgb)
+    if fg_rgba.mode != "RGBA":
+        fg_rgba = fg_rgba.convert("RGBA")
+
+    buf = io.BytesIO()
+    fg_rgba.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def correct_background(

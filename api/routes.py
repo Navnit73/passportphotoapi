@@ -10,14 +10,17 @@ GET  /health                  — Health check
 """
 
 import logging
+import re
 import time
 import uuid
+from pathlib import Path
 
 import cv2
 import numpy as np
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends, Security, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.security import APIKeyHeader
+from starlette.concurrency import run_in_threadpool
 
 from api.models import (
     CountrySummary,
@@ -29,7 +32,7 @@ from api.models import (
 )
 from config.countries.loader import get_all_configs, get_config, list_supported
 from config.settings import settings
-from services.background import correct_background, validate_background
+from services.background import correct_background, remove_background, validate_background
 from services.compressor import compress_to_jpeg
 from services.cropper import compute_crop
 from services.face_detector import detect_face
@@ -51,6 +54,43 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
     return api_key
 
 router = APIRouter()
+
+_ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/bmp",
+    "image/tiff",
+}
+
+
+async def _read_and_decode_image(image: UploadFile) -> tuple[bytes, np.ndarray]:
+    """Validate uploaded image file, enforce size limit, and decode to BGR array."""
+    if image.content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {image.content_type}. "
+                   f"Allowed: {', '.join(sorted(_ALLOWED_IMAGE_TYPES))}",
+        )
+
+    file_bytes = await image.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty image file")
+
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max: {settings.max_upload_size_mb}MB",
+        )
+
+    np_arr = np.frombuffer(file_bytes, np.uint8)
+    decoded = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    if decoded is None:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    return file_bytes, decoded
 
 
 # ─── POST /validate ───
@@ -130,27 +170,7 @@ async def process_image(
         )
 
     # ─── Step 0: Validate and Read Uploaded Image ───
-    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/bmp", "image/tiff"}
-    if image.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {image.content_type}. "
-                   f"Allowed: {', '.join(allowed_types)}",
-        )
-
-    file_bytes = await image.read()
-    max_bytes = settings.max_upload_size_mb * 1024 * 1024
-    if len(file_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Max: {settings.max_upload_size_mb}MB",
-        )
-
-    # Decode image directly from bytes
-    np_arr = np.frombuffer(file_bytes, np.uint8)
-    processed_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    if processed_image is None:
-        raise HTTPException(status_code=400, detail="Invalid image file")
+    file_bytes, processed_image = await _read_and_decode_image(image)
 
     # Upload original to Cloudinary in background
     background_tasks.add_task(upload_original, file_bytes, image.filename or "photo.jpg")
@@ -251,6 +271,56 @@ async def process_image(
             status_code=500,
             detail=f"Processing failed: {str(e)}",
         )
+
+
+# ─── POST /remove-bg ───
+
+@router.post(
+    "/remove-bg",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"image/png": {}},
+            "description": "Transparent PNG image with background removed",
+        },
+        400: {"model": ErrorResponse},
+        500: {"model": ErrorResponse},
+    },
+    summary="Remove background from an image and return transparent PNG",
+)
+async def remove_bg(
+    image: UploadFile = File(...),
+    api_key: str = Depends(verify_api_key),
+):
+    """Remove the image background and return the cutout directly as PNG bytes."""
+    start_time = time.time()
+    _, cv_image = await _read_and_decode_image(image)
+
+    try:
+        png_bytes = await run_in_threadpool(remove_background, cv_image)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Background removal failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Background removal failed: {str(e)}",
+        )
+
+    stem = Path(image.filename or "image").stem
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]", "_", stem).strip("._") or "image"
+    output_filename = f"{safe_stem}_no_bg.png"
+
+    elapsed = time.time() - start_time
+    logger.info(f"Background removal complete in {elapsed:.2f}s ({len(png_bytes) // 1024}KB)")
+
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'inline; filename="{output_filename}"',
+        },
+    )
 
 
 
