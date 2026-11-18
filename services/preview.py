@@ -1,19 +1,183 @@
 """
-Generate a preview image with dynamic measurement lines overlaid.
-Improved UI: more left padding, cleaner arrows, pill backgrounds on labels.
+Preview image: the final photo on a white canvas with official-style
+dimension lines (width, height, head size, eye height) and measured guides.
+
+`render_measurement_preview` is generic (any photo size / unit) and is used by
+both the main /process endpoint (via `create_preview_image`) and the US app.
 """
 
 import io
 import logging
+from fractions import Fraction
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config.countries.schema import CountryConfig
 
 logger = logging.getLogger(__name__)
 
+INK = (28, 28, 36)
+PURPLE = (92, 76, 220)
+SLATE = (132, 140, 168)
+TEAL = (22, 150, 130)
+RED = (200, 60, 60)
+MUTED = (110, 114, 130)
+
+_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Helvetica.ttc",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "DejaVuSans.ttf",
+]
+
+
+def _font(size: int) -> ImageFont.FreeTypeFont:
+    for p in _FONT_CANDIDATES:
+        try:
+            return ImageFont.truetype(p, size)
+        except OSError:
+            continue
+    return ImageFont.load_default(size)
+
+
+def _pill(text: str, size: int, color, rotate: bool = False) -> Image.Image:
+    f = _font(size)
+    l, t, r, b = f.getbbox(text)
+    padx, pady = int(size * 0.62), int(size * 0.42)
+    w, h = (r - l) + 2 * padx, (b - t) + 2 * pady
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((1, 1, w - 2, h - 2), radius=int(h * 0.3), fill=(255, 255, 255, 255),
+                        outline=color, width=max(2, size // 14))
+    d.text((padx - l, pady - t), text, font=f, fill=INK)
+    return im.rotate(90, expand=True) if rotate else im
+
+
+# ─────────────────────────── label formatting ───────────────────────────
+
+def fmt_inches(v: float) -> str:
+    """1.375 -> '1 3/8' (nearest 1/8 inch)."""
+    fr = Fraction(round(v * 8), 8)
+    whole, rem = divmod(fr.numerator, fr.denominator)
+    if rem == 0:
+        return str(whole)
+    return f"{whole} {Fraction(rem, fr.denominator)}" if whole else str(Fraction(rem, fr.denominator))
+
+
+def fmt_mm(v: float) -> str:
+    return f"{v:.1f}".rstrip("0").rstrip(".")
+
+
+def _range_label(lo: float, hi: float, unit: str) -> str:
+    if unit == "in":
+        return f"{fmt_inches(lo)}–{fmt_inches(hi)} in"
+    return f"{fmt_mm(lo)}–{fmt_mm(hi)} mm"
+
+
+# ─────────────────────────── generic renderer ───────────────────────────
+
+def render_measurement_preview(
+    image: np.ndarray,
+    crown_frac: float,
+    chin_frac: float,
+    eye_frac: float,
+    width_label: str,
+    height_label: str,
+    head_label: str,
+    eye_label: str,
+    caption: str,
+    compliant: bool = True,
+) -> bytes:
+    """
+    Args:
+        image: final BGR photo.
+        crown_frac / chin_frac / eye_frac: positions as fractions of the image
+            height measured from the TOP (0 = top edge, 1 = bottom edge).
+    """
+    K = 2                                        # supersample for crisp lines
+    ih, iw = image.shape[:2]
+    long_side = 600 * K
+    sc = long_side / max(ih, iw)
+    pw, ph = int(round(iw * sc)), int(round(ih * sc))
+
+    left, right, top, bottom = 250 * K, 310 * K, 250 * K, 190 * K
+    W, H = pw + left + right, ph + top + bottom
+    x0, y0 = left, top
+    x1, y1 = x0 + pw, y0 + ph
+
+    canvas = Image.new("RGB", (W, H), (255, 255, 255))
+
+    # ── soft shadow + rounded photo card ──
+    rad = 22 * K
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle((x0, y0 + 14 * K, x1, y1 + 14 * K), rad, fill=(40, 50, 80, 70))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(22 * K))
+    canvas.paste(shadow, (0, 0), shadow)
+    photo = Image.fromarray(cv2.cvtColor(cv2.resize(image, (pw, ph), interpolation=cv2.INTER_CUBIC), cv2.COLOR_BGR2RGB))
+    mask = Image.new("L", (pw, ph), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, pw - 1, ph - 1), rad, fill=255)
+    canvas.paste(photo, (x0, y0), mask)
+    d = ImageDraw.Draw(canvas)
+    d.rounded_rectangle((x0, y0, x1, y1), rad, outline=(226, 229, 238), width=K)
+    lw = 2 * K
+
+    def tick_v(x, ya, yb, col, t=9 * K):
+        d.line((x, ya, x, yb), fill=col, width=lw)
+        for y in (ya, yb):
+            d.line((x - t, y, x + t, y), fill=col, width=lw)
+
+    def tick_h(y, xa, xb, col, t=9 * K):
+        d.line((xa, y, xb, y), fill=col, width=lw)
+        for x in (xa, xb):
+            d.line((x, y - t, x, y + t), fill=col, width=lw)
+
+    # ── top: photo width ──
+    ty = y0 - 62 * K
+    tick_h(ty, x0, x1, SLATE)
+    pill = _pill(width_label, 30 * K, PURPLE)
+    cx = (x0 + x1) // 2
+    d.rectangle((cx - pill.width // 2 - 14 * K, ty - 6 * K, cx + pill.width // 2 + 14 * K, ty + 6 * K), fill=(255, 255, 255))
+    canvas.paste(pill, (cx - pill.width // 2, ty - pill.height // 2 - 30 * K), pill)
+
+    # ── far right: photo height ──
+    rx = x1 + 120 * K
+    tick_v(rx, y0, y1, SLATE)
+    pill = _pill(height_label, 30 * K, PURPLE)
+    canvas.paste(pill, (rx + 26 * K, (y0 + y1) // 2 - pill.height // 2), pill)
+
+    # ── left: head height bracket + guides ──
+    ycrown, ychin, yeye = y0 + crown_frac * ph, y0 + chin_frac * ph, y0 + eye_frac * ph
+    lx = x0 - 62 * K
+    tick_v(lx, int(ycrown), int(ychin), SLATE)
+    for y in (ycrown, ychin):
+        d.line((lx, y, x0 + int(pw * 0.80), y), fill=PURPLE, width=lw)
+    pill = _pill(head_label, 28 * K, PURPLE, rotate=True)
+    canvas.paste(pill, (lx - pill.width - 22 * K, int((ycrown + ychin) / 2 - pill.height / 2)), pill)
+
+    # ── right: eye height bracket (eye line -> bottom edge) ──
+    ex = x1 + 52 * K
+    tick_v(ex, int(yeye), int(y1), TEAL)
+    d.line((x0 + int(pw * 0.74), yeye, ex, yeye), fill=TEAL, width=lw)
+    pill = _pill(eye_label, 26 * K, TEAL, rotate=True)
+    canvas.paste(pill, (ex + 14 * K, int((yeye + y1) / 2 - pill.height / 2)), pill)
+
+    # ── caption + badge ──
+    cf = _font(21 * K)
+    tw = d.textlength(caption, font=cf)
+    d.text(((W - tw) / 2, y1 + 56 * K), caption, font=cf, fill=MUTED)
+    badge = _pill("Meets requirements" if compliant else "Needs attention", 22 * K, TEAL if compliant else RED)
+    canvas.paste(badge, ((W - badge.width) // 2, y1 + 104 * K), badge)
+
+    out = canvas.resize((W // K, H // K), Image.LANCZOS)
+    buf = io.BytesIO()
+    out.save(buf, format="JPEG", quality=92, subsampling=0)
+    return buf.getvalue()
+
+
+# ─────────────────────────── main /process entry point ───────────────────────────
 
 def create_preview_image(
     image: np.ndarray,
@@ -22,274 +186,34 @@ def create_preview_image(
     eye_from_bottom_pct: float,
     top_margin_pct: float,
 ) -> bytes:
-    """
-    Generate a preview image with visual measurement lines.
-    """
-    h, w = image.shape[:2]
-
-    # Calculate Y coordinates in the photo (0 is top)
-    top_of_head_y = int(h * (top_margin_pct / 100))
-    chin_y        = int(h * ((top_margin_pct + head_height_pct) / 100))
-    eye_y         = int(h * (1.0 - (eye_from_bottom_pct / 100)))
-
-    # ── Physical measurement text ────────────────────────────────────────────
-    total_height_in = config.photo_spec.height_in
-    total_width_in  = config.photo_spec.width_in
-
-    min_head_pct = config.face_constraints.head_height_pct.min
-    max_head_pct = config.face_constraints.head_height_pct.max
-    min_eye_pct  = config.face_constraints.eye_position.from_bottom_pct.min
-    max_eye_pct  = config.face_constraints.eye_position.from_bottom_pct.max
-
-    if total_height_in:
-        min_head_in = total_height_in * (min_head_pct / 100)
-        max_head_in = total_height_in * (max_head_pct / 100)
-        val_head_in = total_height_in * (head_height_pct / 100)
-        head_text   = f"{val_head_in:.2f}in ({min_head_in:.2f}-{max_head_in:.2f}in)"
-
-        min_eye_in = total_height_in * (min_eye_pct / 100)
-        max_eye_in = total_height_in * (max_eye_pct / 100)
-        val_eye_in = total_height_in * (eye_from_bottom_pct / 100)
-        eye_text   = f"{val_eye_in:.2f}in ({min_eye_in:.2f}-{max_eye_in:.2f}in)"
-
-        total_height_text = f"{total_height_in}in"
-        total_width_text  = f"{total_width_in}in"
+    """Preview for the main pipeline; labels come from the country config."""
+    ps = config.photo_spec
+    if ps.height_in:
+        unit, f = "in", 1.0
+        hv = ps.height_in
+        wv = ps.width_in or hv * image.shape[1] / image.shape[0]
+        wl, hl = f"{fmt_inches(wv)} in", f"{fmt_inches(hv)} in"
     else:
-        total_height_mm = config.photo_spec.height_mm or 0.0
-        total_width_mm  = config.photo_spec.width_mm  or 0.0
+        unit = "mm"
+        hv = ps.height_mm or 0.0
+        wv = ps.width_mm or hv * image.shape[1] / max(image.shape[0], 1)
+        wl, hl = f"{fmt_mm(wv)} mm", f"{fmt_mm(hv)} mm"
 
-        min_head_mm = total_height_mm * (min_head_pct / 100)
-        max_head_mm = total_height_mm * (max_head_pct / 100)
-        val_head_mm = total_height_mm * (head_height_pct / 100)
-        head_text   = f"{val_head_mm:.1f}mm ({min_head_mm:.1f}-{max_head_mm:.1f}mm)"
+    fc = config.face_constraints
+    hmin, hmax = fc.head_height_pct.min, fc.head_height_pct.max
+    emin, emax = fc.eye_position.from_bottom_pct.min, fc.eye_position.from_bottom_pct.max
+    head_label = _range_label(hv * hmin / 100, hv * hmax / 100, unit)
+    eye_label = _range_label(hv * emin / 100, hv * emax / 100, unit)
 
-        min_eye_mm = total_height_mm * (min_eye_pct / 100)
-        max_eye_mm = total_height_mm * (max_eye_pct / 100)
-        val_eye_mm = total_height_mm * (eye_from_bottom_pct / 100)
-        eye_text   = f"{val_eye_mm:.1f}mm ({min_eye_mm:.1f}-{max_eye_mm:.1f}mm)"
-
-        total_height_text = f"{total_height_mm}mm"
-        total_width_text  = f"{total_width_mm}mm"
-
-    # ── Canvas padding ───────────────────────────────────────────────────────
-    # pad_l increased so the left bracket + rotated label never touch the photo
-    pad_l = 130   # ← was 80; extra room for bracket line + text + gap
-    pad_r = 300   # right: two brackets + labels
-    pad_t = 70
-    pad_b = 70
-
-    new_w   = w + pad_l + pad_r
-    new_h   = h + pad_t + pad_b
-    photo_x = (new_w - w) // 2   # horizontally centred
-    photo_y = pad_t
-
-    # ── Build canvas ─────────────────────────────────────────────────────────
-    rgb     = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(rgb)
-    canvas  = Image.new("RGB", (new_w, new_h), "#F8F9FA")   # off-white bg
-    canvas.paste(pil_img, (photo_x, photo_y))
-    draw = ImageDraw.Draw(canvas)
-
-    # ── Fonts ────────────────────────────────────────────────────────────────
-    font_size = 22
-    try:
-        font      = ImageFont.truetype("arial.ttf",   font_size)
-        font_bold = ImageFont.truetype("arialbd.ttf", font_size)
-    except IOError:
-        try:
-            font      = ImageFont.truetype("Helvetica", font_size)
-            font_bold = font
-        except IOError:
-            font      = ImageFont.load_default()
-            font_bold = font
-
-    # ── Design tokens ────────────────────────────────────────────────────────
-    COLOR_LINE    = "#2E7D32"   # dark green
-    COLOR_FEAT    = "#43A047"   # mid green for feature lines
-    COLOR_ARROW   = "#2E7D32"
-    COLOR_TEXT    = "#1B5E20"   # very dark green text
-    COLOR_PILL_BG = "#E8F5E9"   # light green pill
-    COLOR_PILL_BD = "#A5D6A7"   # pill border
-    LINE_W        = 1
-    ARROW_SIZE    = 8           # half-width of arrow head
-    ARROW_LEN     = 14          # length of arrow head
-
-    # ── Photo boundary ───────────────────────────────────────────────────────
-    # Thin rounded-corner feel via 1px outline + subtle shadow row
-    draw.rectangle(
-        [photo_x - 1, photo_y - 1, photo_x + w, photo_y + h],
-        outline="#BDBDBD", width=1
+    compliant = hmin <= head_height_pct <= hmax and emin <= eye_from_bottom_pct <= emax
+    caption = (f"Head {head_height_pct:.1f}%  ·  Eyes {eye_from_bottom_pct:.1f}% from bottom"
+               f"  ·  Top margin {top_margin_pct:.1f}%")
+    return render_measurement_preview(
+        image,
+        crown_frac=top_margin_pct / 100,
+        chin_frac=(top_margin_pct + head_height_pct) / 100,
+        eye_frac=1.0 - eye_from_bottom_pct / 100,
+        width_label=wl, height_label=hl,
+        head_label=head_label, eye_label=eye_label,
+        caption=caption, compliant=compliant,
     )
-    draw.rectangle(
-        [photo_x, photo_y, photo_x + w - 1, photo_y + h - 1],
-        outline="#E0E0E0", width=1
-    )
-
-    # ── Helper: text size ────────────────────────────────────────────────────
-    def text_w(text, f=None):
-        f = f or font
-        try:
-            bb = f.getbbox(text)
-            return bb[2] - bb[0]
-        except AttributeError:
-            return len(text) * 12
-
-    def text_h(text, f=None):
-        f = f or font
-        try:
-            bb = f.getbbox(text)
-            return bb[3] - bb[1]
-        except AttributeError:
-            return font_size
-
-    # ── Helper: draw arrow tip ───────────────────────────────────────────────
-    def arrow_tip_up(draw, cx, y):
-        draw.polygon(
-            [(cx, y), (cx - ARROW_SIZE, y + ARROW_LEN), (cx + ARROW_SIZE, y + ARROW_LEN)],
-            fill=COLOR_ARROW
-        )
-
-    def arrow_tip_down(draw, cx, y):
-        draw.polygon(
-            [(cx, y), (cx - ARROW_SIZE, y - ARROW_LEN), (cx + ARROW_SIZE, y - ARROW_LEN)],
-            fill=COLOR_ARROW
-        )
-
-    def arrow_tip_left(draw, x, cy):
-        draw.polygon(
-            [(x, cy), (x + ARROW_LEN, cy - ARROW_SIZE), (x + ARROW_LEN, cy + ARROW_SIZE)],
-            fill=COLOR_ARROW
-        )
-
-    def arrow_tip_right(draw, x, cy):
-        draw.polygon(
-            [(x, cy), (x - ARROW_LEN, cy - ARROW_SIZE), (x - ARROW_LEN, cy + ARROW_SIZE)],
-            fill=COLOR_ARROW
-        )
-
-    # ── Helper: pill label (horizontal) ─────────────────────────────────────
-    def draw_pill_label(cx, cy, text, f=None):
-        """Draw text centred at (cx, cy) on a rounded pill background."""
-        f   = f or font
-        tw  = text_w(text, f)
-        th  = text_h(text, f)
-        pad = 8
-        rx0, ry0 = cx - tw // 2 - pad, cy - th // 2 - pad // 2
-        rx1, ry1 = cx + tw // 2 + pad, cy + th // 2 + pad // 2
-        draw.rounded_rectangle([rx0, ry0, rx1, ry1],
-                                radius=6, fill=COLOR_PILL_BG, outline=COLOR_PILL_BD, width=1)
-        draw.text((cx - tw // 2, cy - th // 2), text, fill=COLOR_TEXT, font=f)
-
-    # ── Helper: vertical dimension bracket ──────────────────────────────────
-    def draw_dimension_vertical(x, y1, y2, text):
-        """
-        Vertical double-headed arrow at x, between y1 and y2.
-        Label is rotated 90° and placed on a pill to the RIGHT of the line.
-        """
-        # Main line (leave room for arrow heads)
-        draw.line([(x, y1 + ARROW_LEN), (x, y2 - ARROW_LEN)],
-                  fill=COLOR_LINE, width=LINE_W)
-        # Arrow heads
-        arrow_tip_up(draw, x, y1)
-        arrow_tip_down(draw, x, y2)
-
-        # Tick marks (small horizontal serifs at y1 and y2)
-        tick = 6
-        draw.line([(x - tick, y1), (x + tick, y1)], fill=COLOR_LINE, width=LINE_W)
-        draw.line([(x - tick, y2), (x + tick, y2)], fill=COLOR_LINE, width=LINE_W)
-
-        # Rotated label on pill background
-        tw = text_w(text)
-        th = text_h(text)
-        label_w = int(tw + 16)
-        label_h = int(th + 10)
-
-        txt_img  = Image.new("RGBA", (label_w, label_h), (255, 255, 255, 0))
-        txt_draw = ImageDraw.Draw(txt_img)
-        # pill bg on the rotated canvas
-        txt_draw.rounded_rectangle(
-            [0, 0, label_w - 1, label_h - 1],
-            radius=6, fill=COLOR_PILL_BG + "EE", outline=COLOR_PILL_BD
-        )
-        txt_draw.text((8, 5), text, fill=COLOR_TEXT, font=font)
-        txt_img  = txt_img.rotate(90, expand=True)
-
-        mid_y   = (y1 + y2) // 2
-        paste_x = x + 6                         # 6 px gap from the line
-        paste_y = mid_y - txt_img.height // 2
-        canvas.paste(txt_img, (paste_x, paste_y), txt_img)
-
-    # ── Helper: horizontal dimension bracket ────────────────────────────────
-    def draw_dimension_horizontal(y, x1, x2, text):
-        draw.line([(x1 + ARROW_LEN, y), (x2 - ARROW_LEN, y)],
-                  fill=COLOR_LINE, width=LINE_W)
-        arrow_tip_left(draw, x1, y)
-        arrow_tip_right(draw, x2, y)
-
-        tick = 6
-        draw.line([(x1, y - tick), (x1, y + tick)], fill=COLOR_LINE, width=LINE_W)
-        draw.line([(x2, y - tick), (x2, y + tick)], fill=COLOR_LINE, width=LINE_W)
-
-        cx = (x1 + x2) // 2
-        draw_pill_label(cx, y + 18, text)
-
-    # ── Helper: feature line ─────────────────────────────────────────────────
-    def draw_feature_line(photo_rel_y, right_ext, x_end=None):
-        y      = photo_y + photo_rel_y
-        x_stop = x_end if x_end is not None else (photo_x + w + right_ext)
-        # Dashed feel: draw as a solid thin line with lighter colour
-        draw.line([(photo_x, y), (x_stop, y)],
-                  fill=COLOR_FEAT, width=1)
-        # Small triangle marker at left photo edge
-        draw.polygon(
-            [(photo_x,     y),
-             (photo_x + 7, y - 4),
-             (photo_x + 7, y + 4)],
-            fill=COLOR_FEAT
-        )
-
-    # ────────────────────────────────────────────────────────────────────────
-    # 1. Total Height — left-side bracket
-    #    x position = photo_x - 30  →  label goes further left, away from photo
-    # ────────────────────────────────────────────────────────────────────────
-    left_bracket_x = photo_x - 35   # plenty of gap from photo edge
-    draw_dimension_vertical(
-        left_bracket_x,
-        photo_y,
-        photo_y + h,
-        total_height_text
-    )
-
-    # 2. Total Width — bottom bracket
-    draw_dimension_horizontal(
-        photo_y + h + 30,
-        photo_x,
-        photo_x + w,
-        total_width_text
-    )
-
-    # 3. Feature lines (head top, chin, eyes)
-    draw_feature_line(top_of_head_y, 50)
-    draw_feature_line(chin_y,        50)
-    draw_feature_line(eye_y,         90)
-
-    # 4. Head Height bracket — first right bracket
-    draw_dimension_vertical(
-        photo_x + w + 25,
-        photo_y + top_of_head_y,
-        photo_y + chin_y,
-        head_text
-    )
-
-    # 5. Eye from Bottom bracket — second right bracket
-    draw_dimension_vertical(
-        photo_x + w + 70,
-        photo_y + eye_y,
-        photo_y + h,
-        eye_text
-    )
-
-    # ── Output ───────────────────────────────────────────────────────────────
-    buf = io.BytesIO()
-    canvas.save(buf, format="JPEG", quality=92)
-    return buf.getvalue()

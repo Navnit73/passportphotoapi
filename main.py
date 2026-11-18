@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
+from us_passport.router import router as us_router
 from config.countries.loader import load_all_configs
 from config.settings import settings
 from services.background import _get_modnet_session, _get_rembg_session
@@ -87,6 +88,7 @@ app.add_middleware(
 # ─── Register routes ───
 
 app.include_router(router)
+app.include_router(us_router, prefix="/us")   # standalone US engine: /us/process, /us/validate
 
 
 # ─── Run with uvicorn ───
