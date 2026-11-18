@@ -2,7 +2,12 @@
   "schema_version": "1.0",
   "country": { "name": "Bahrain", "code": "BH" },
   "document_type": "passport",
-  "photo_spec": { "width_mm": 40, "height_mm": 60, "aspect_ratio": 0.6667, "print_dpi": 600 },
+  "photo_spec": {
+    "width_mm": 40,
+    "height_mm": 60,
+    "aspect_ratio": 0.6667,
+    "print_dpi": 600
+  },
   "digital_requirements": {
     "required_resolution_px": { "width": 945, "height": 1417 },
     "min_resolution_px": { "width": 472, "height": 709 },
@@ -29,8 +34,17 @@
     "shadows_allowed": false,
     "texture_allowed": false
   },
-  "print_layout": { "paper_size": "A4", "photos_per_sheet": 8, "spacing_mm": 5, "cut_guides": true },
-  "auto_crop_config": { "head_top_multiplier": 1.24, "eye_line_target_pct": 0.58, "safe_padding_pct": 5 },
+  "print_layout": {
+    "paper_size": "A4",
+    "photos_per_sheet": 8,
+    "spacing_mm": 5,
+    "cut_guides": true
+  },
+  "auto_crop_config": {
+    "head_top_multiplier": 1.24,
+    "eye_line_target_pct": 0.58,
+    "safe_padding_pct": 5
+  },
   "data_source": "third_party",
   "source_url": "https://visafoto.com/bahrain/passport-photo-size",
   "source_authority": "Bahrain passport photo guidance (secondary source)"
